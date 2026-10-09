@@ -266,11 +266,9 @@ export const AgcBlogView: React.FC<AgcBlogViewProps> = ({
           <span className="bg-[#ea5e00] text-white px-2 py-0.5 text-[10px] uppercase font-black rounded-sm mr-2 shrink-0">
             WARTA UTAMA
           </span>
-          {React.createElement(
-            'marquee' as any,
-            { direction: 'left', scrollamount: '5', className: 'cursor-pointer' },
-            'Selamat Datang Di Portal Blog AGC ZAIN.NET (Super SEO Blogger Template by Hanafi) — Panduan Lengkap Cara Agar Blog Menghasilkan Uang, Tutorial SEO On-Page, Optimasi Template Blogspot Ringan, dan Monetisasi AdSense Terlengkap!'
-          )}
+          <marquee direction="left" scrollamount="5" className="cursor-pointer">
+            Selamat Datang Di Portal Blog AGC ZAIN.NET (Super SEO Blogger Template by Hanafi) — Panduan Lengkap Cara Agar Blog Menghasilkan Uang, Tutorial SEO On-Page, Optimasi Template Blogspot Ringan, dan Monetisasi AdSense Terlengkap!
+          </marquee>
         </div>
       </div>
 

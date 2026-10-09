@@ -1,10 +1,9 @@
 import React from 'react';
 import { Wallet, Sparkles, PlusCircle, ArrowRight, ShieldCheck, Zap, CreditCard, ChevronRight } from 'lucide-react';
 import { User } from 'firebase/auth';
-import { AppUser } from '../types';
 
 interface WalletHomeBannerProps {
-  user: User | AppUser | null;
+  user: User | null;
   walletBalance: number;
   onOpenTopUp: (presetAmount?: number) => void;
   onOpenLogin: () => void;

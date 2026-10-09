@@ -1,6 +1,8 @@
 {
-  "name": "Sistem Jilid Skripsi & Nota Otomatis UIN Madura",
-  "description": "Aplikasi Pemesanan, Kalkulator Live, dan Cetak Nota Otomatis Jasa Jilid Hard Cover Skripsi untuk Mahasiswa UIN Madura.",
+  "name": "Remix ZAIN.NET Academic Hub",
+  "description": "Platform otomatisasi penulisan skripsi, artikel ilmiah, repositori makalah akademik mahasiswa, dan download file asli Word (.docx) terbuka untuk publik tanpa registrasi.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

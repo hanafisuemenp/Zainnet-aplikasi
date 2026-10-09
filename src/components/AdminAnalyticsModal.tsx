@@ -94,7 +94,7 @@ export const AdminAnalyticsModal: React.FC<AdminAnalyticsModalProps> = ({
       if (methodFilter !== 'all') {
         if (methodFilter === 'loyalty' && p.method !== 'loyalty_reward_3x') return false;
         if (methodFilter === 'paid' && p.method === 'loyalty_reward_3x') return false;
-        if (methodFilter === 'qris' && p.paymentType !== 'qris_manual' && (p.paymentType as string) !== 'qris') return false;
+        if (methodFilter === 'qris' && p.paymentType !== 'qris') return false;
         if (methodFilter === 'va' && p.paymentType !== 'bank_transfer') return false;
         if (methodFilter === 'reseller') {
           const email = (p.userEmail || '').toLowerCase();
@@ -172,11 +172,11 @@ export const AdminAnalyticsModal: React.FC<AdminAnalyticsModalProps> = ({
           monthRevenue += amount;
         }
 
-        if (p.paymentType === 'qris_manual' || (p.paymentType as string) === 'qris') {
+        if (p.paymentType === 'qris') {
           paymentMethodsCount['QRIS'] += 1;
         } else if (p.paymentType === 'bank_transfer') {
           paymentMethodsCount['Virtual Account'] += 1;
-        } else if (p.paymentType === 'wallet_balance' || (p.paymentType as string) === 'gopay' || (p.paymentType as string) === 'shopeepay') {
+        } else if (p.paymentType === 'gopay' || p.paymentType === 'shopeepay') {
           paymentMethodsCount['E-Wallet'] += 1;
         } else {
           paymentMethodsCount['Lainnya'] += 1;

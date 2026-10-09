@@ -127,44 +127,9 @@
         "fileId": { "type": "string" },
         "downloadUrl": { "type": "string" }
       }
-    },
-    "NotaOrder": {
-      "title": "NotaOrder",
-      "description": "Hardcover thesis binding orders, student information, and uploaded manuscript records",
-      "type": "object",
-      "properties": {
-        "orderId": { "type": "string" },
-        "studentName": { "type": "string" },
-        "university": { "type": "string" },
-        "fakultas": { "type": "string" },
-        "prodi": { "type": "string" },
-        "coverColor": { "type": "string" },
-        "whatsapp": { "type": "string" },
-        "coverType": { "type": "string" },
-        "coverCount": { "type": "number" },
-        "durationKey": { "type": "string" },
-        "durationLabel": { "type": "string" },
-        "pricePerCover": { "type": "number" },
-        "coversSubtotal": { "type": "number" },
-        "servicesSubtotal": { "type": "number" },
-        "printCost": { "type": "number" },
-        "totalCost": { "type": "number" },
-        "orderDate": { "type": "string" },
-        "pickupDate": { "type": "string" },
-        "status": { "type": "string" },
-        "transactionStatus": { "type": "string" },
-        "dpAmount": { "type": "number" },
-        "remainingAmount": { "type": "number" },
-        "adminConfirmed": { "type": "boolean" },
-        "createdAt": { "type": "number" }
-      }
     }
   },
   "firestore": {
-    "/nota_orders/{orderId}": {
-      "schema": "NotaOrder",
-      "description": "Permanent thesis orders and uploaded files storage"
-    },
     "/posts/{postId}": {
       "schema": "MakalahPost",
       "description": "Public academic articles repository readable by all visitors and managed by Admin"

@@ -12,10 +12,9 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { User } from 'firebase/auth';
-import { AppUser } from '../types';
 
 interface WhatsAppSupportWidgetProps {
-  user: User | AppUser | null;
+  user: User | null;
 }
 
 export const WhatsAppSupportWidget: React.FC<WhatsAppSupportWidgetProps> = ({ user }) => {

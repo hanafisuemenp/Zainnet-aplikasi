@@ -1,5 +1,3 @@
-export * from './types/index';
-
 export type UserRole = 'admin' | 'reseller' | 'public';
 
 export interface RolesConfig {
@@ -254,9 +252,9 @@ export interface DeviceTrialRecord {
 
 export interface FreeTrialStatus {
   isEligible: boolean;
-  hasClaimedOnAccount?: boolean;
-  hasClaimedOnDevice?: boolean;
-  hasClaimedOnIp?: boolean;
+  hasClaimedOnAccount: boolean;
+  hasClaimedOnDevice: boolean;
+  hasClaimedOnIp: boolean;
   deviceFingerprint: string;
   osName: string;
   browserName: string;
@@ -264,7 +262,7 @@ export interface FreeTrialStatus {
   screenSpec: string;
   cpuCores: number;
   ipAddress: string;
-  summary?: string;
+  summary: string;
   claimedRecord?: DeviceTrialRecord;
   rejectionReason?: string;
 }
@@ -412,7 +410,6 @@ export interface AgcQualityGate {
   originalityScore: number; // 0 - 100
   topicCoverageScore: number; // 0 - 100
   overallQuality: 'EXEMPLARY' | 'PASSED_HIGH_STANDARD' | 'OPTIMIZED';
-  overallScore?: number; // 0 - 100
   verifiedHumanReadable: boolean;
   passedRulesCount: number; // e.g. 41 of 41
 }

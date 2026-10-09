@@ -29,7 +29,6 @@ import {
   createSampleFaultyThesisDocx,
   createSampleNoTocThesisDocx,
   createSampleArabicThesisDocx,
-  createSampleProposalDocx,
   isBabHeading,
   ThesisSection,
   DocumentAnalysis,
@@ -89,19 +88,8 @@ export const SkripsiPaginatorFixedView: React.FC<SkripsiPaginatorFixedViewProps>
       setFile(uploadedFile);
       setFileName(name);
 
-      let activeProfile = profileOverride || numberingProfile;
-      let { zip, docXml, analysis: docAnalysis } = await analyzeDocx(uploadedFile, name, activeProfile);
-      
-      // Auto-deteksi dokumen Proposal Penelitian jika tidak ada BAB dan ada Judul Penelitian
-      if (docAnalysis.isProposal && activeProfile !== 'proposal' && activeProfile !== 'arab-proposal') {
-        activeProfile = 'proposal';
-        setNumberingProfile('proposal');
-        const re = await analyzeDocx(uploadedFile, name, 'proposal');
-        zip = re.zip;
-        docXml = re.docXml;
-        docAnalysis = re.analysis;
-      }
-
+      const activeProfile = profileOverride || numberingProfile;
+      const { zip, docXml, analysis: docAnalysis } = await analyzeDocx(uploadedFile, name, activeProfile);
       setAnalysis(docAnalysis);
       setWorkingData({ zip, docXml });
       setTocResult(docAnalysis.tocWorkflowPreview || null);
@@ -188,23 +176,6 @@ export const SkripsiPaginatorFixedView: React.FC<SkripsiPaginatorFixedViewProps>
     }
   };
 
-  // Muat contoh Proposal Penelitian (uji A. Judul Penelitian s/d Daftar Pustaka dengan Sub-Judul & Sub-Sub Judul)
-  const handleLoadSampleProposal = async () => {
-    try {
-      setIsProcessing(true);
-      setErrorMsg(null);
-      setSuccessMsg(null);
-      setEditToc(true);
-      setNumberingProfile('proposal');
-      const sampleBlob = await createSampleProposalDocx();
-      await handleFileUpload(sampleBlob, 'Contoh_Proposal_Penelitian_Tahfidz.docx', 'proposal');
-    } catch (err: any) {
-      console.error(err);
-      setErrorMsg('Gagal membuat file simulasi Proposal Penelitian.');
-      setIsProcessing(false);
-    }
-  };
-
   // Jalankan koreksi penomoran (+ opsional koreksi/pembuatan Daftar Isi)
   const handleApplyCorrection = async () => {
     if (!workingData || !analysis || !file) return;
@@ -216,29 +187,18 @@ export const SkripsiPaginatorFixedView: React.FC<SkripsiPaginatorFixedViewProps>
       // Re-analyze fresh copy from original uploaded file so user can toggle editToc & numberingProfile freely
       const fresh = await analyzeDocx(file, fileName, numberingProfile);
 
-      const isProposal =
-        numberingProfile === 'proposal' ||
-        numberingProfile === 'arab-proposal' ||
-        fresh.analysis.isProposal;
-
       const detectedChapterNums = [1, 2, 3, 4, 5, 6].filter(n =>
         fresh.analysis.sections.some(s =>
           s.chapterNumber === n ||
-          (n === 1 && (s.type === 'bab_1' || /judul/i.test(s.title))) ||
+          (n === 1 && s.type === 'bab_1') ||
           (s.type === 'bab_other' && s.isChapterStart && isBabHeading(s.title, n))
         )
       );
 
-      const hasStartBody = isProposal
-        ? fresh.analysis.sections.some(s => s.type === 'bab_1' || s.chapterNumber === 1 || s.paragraphIndex > 0)
-        : detectedChapterNums.includes(1) ||
-          fresh.analysis.sections.some(s => s.type === 'bab_1' || /judul/i.test(s.title));
-
-      if (!hasStartBody) {
+      if (!detectedChapterNums.includes(1)) {
         throw new Error(
-          isProposal
-            ? 'Koreksi dibatalkan: Judul atau teks awal naskah belum terdeteksi pada proposal ini. Pastikan dokumen memuat teks isi proposal setelah cover.'
-            : 'Koreksi dibatalkan: BAB I belum terdeteksi pada dokumen ini. Pastikan dokumen memuat judul bab (misal BAB I PENDAHULUAN atau الباب الأول) agar penomoran dapat diatur per section.'
+          'Koreksi dibatalkan: BAB I belum terdeteksi pada dokumen ini. ' +
+          'Pastikan dokumen memuat judul bab (misal BAB I PENDAHULUAN atau الباب الأول) agar penomoran dapat diatur per section.'
         );
       }
 
@@ -252,20 +212,16 @@ export const SkripsiPaginatorFixedView: React.FC<SkripsiPaginatorFixedViewProps>
       // Re-open the generated DOCX and verify the actual XML result before
       // offering it to the user. A correction that cannot be verified is rejected.
       const post = await analyzeDocx(correctedBlob, fileName, numberingProfile);
-      const postMissing = isProposal
-        ? []
-        : detectedChapterNums.filter(n =>
-            !post.analysis.sections.some(s =>
-              s.chapterNumber === n ||
-              (n === 1 && s.type === 'bab_1') ||
-              (s.type === 'bab_other' && s.isChapterStart && isBabHeading(s.title, n))
-            )
-          );
-      const postProblems = isProposal
-        ? []
-        : post.analysis.sections
-            .filter(s => ['front_matter', 'bab_1', 'bab_other', 'back_matter'].includes(s.type))
-            .flatMap(s => s.currentStatus.hasNumberingIssue ? [`${s.title}: ${s.currentStatus.issues.join('; ')}`] : []);
+      const postMissing = detectedChapterNums.filter(n =>
+        !post.analysis.sections.some(s =>
+          s.chapterNumber === n ||
+          (n === 1 && s.type === 'bab_1') ||
+          (s.type === 'bab_other' && s.isChapterStart && isBabHeading(s.title, n))
+        )
+      );
+      const postProblems = post.analysis.sections
+        .filter(s => ['front_matter', 'bab_1', 'bab_other', 'back_matter'].includes(s.type))
+        .flatMap(s => s.currentStatus.hasNumberingIssue ? [`${s.title}: ${s.currentStatus.issues.join('; ')}`] : []);
 
       if (postMissing.length || postProblems.length) {
         throw new Error(
@@ -987,17 +943,7 @@ export const SkripsiPaginatorFixedView: React.FC<SkripsiPaginatorFixedViewProps>
                   className="w-full sm:w-auto px-4 py-3 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-medium text-sm transition-all flex items-center justify-center gap-2 cursor-pointer border border-teal-200"
                 >
                   <BookOpen className="w-4 h-4 text-teal-600" />
-                  Contoh 3: Skripsi/Proposal Arab
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleLoadSampleProposal}
-                  disabled={isProcessing}
-                  className="w-full sm:w-auto px-4 py-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-medium text-sm transition-all flex items-center justify-center gap-2 cursor-pointer border border-emerald-200"
-                >
-                  <FileText className="w-4 h-4 text-emerald-600" />
-                  Contoh 4: Proposal Penelitian (A. Judul s/d Daftar Pustaka)
+                  Contoh 3: Skripsi/Proposal Arab (Traditional Arabic 18pt)
                 </button>
               </div>
 

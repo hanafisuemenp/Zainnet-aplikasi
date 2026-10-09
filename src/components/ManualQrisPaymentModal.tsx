@@ -29,7 +29,7 @@ import {
 import { User } from 'firebase/auth';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { UserPurchase, ManualQrisConfig, UserRole, UserLoyalty, AppUser } from '../types';
+import { UserPurchase, ManualQrisConfig, UserRole, UserLoyalty } from '../types';
 import { QrisOfficialCard } from './QrisOfficialCard';
 
 export interface CheckoutTarget {
@@ -45,7 +45,7 @@ export interface CheckoutTarget {
 
 interface ManualQrisPaymentModalProps {
   target: CheckoutTarget | null;
-  user: User | AppUser | null;
+  user: User | null;
   userRole?: UserRole;
   discountPercentage?: number;
   paymentConfig: ManualQrisConfig;

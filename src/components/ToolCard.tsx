@@ -69,11 +69,8 @@ export const ToolCard: React.FC<ToolCardProps> = ({
   const maintenanceReason = maintenanceInfo?.reason || 'Masih dalam perbaikan';
   const maintenanceStatus = maintenanceInfo?.status;
 
-  // Khusus Menu No. 11 (Nota Jilid / Kasir Hardcover): Bebas akses gratis tanpa login / kuota
-  const isFreeDirectTool = tool.id === 'nota-1' || tool.categoryId === 11 || tool.url === 'internal://nota-hardcover';
-
   // Regular users cannot access if under maintenance
-  const hasAccess = (isUnlocked || isAdmin || hasResellerTrial || isFreeDirectTool) && (!isUnderMaintenance || isAdmin);
+  const hasAccess = (isUnlocked || isAdmin || hasResellerTrial) && (!isUnderMaintenance || isAdmin);
 
   const handleCardClick = () => {
     if (isUnderMaintenance && !isAdmin) {
@@ -299,13 +296,9 @@ export const ToolCard: React.FC<ToolCardProps> = ({
                   e.stopPropagation();
                   onOpen(tool);
                 }}
-                className={`px-5 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 cursor-pointer ${
-                  isFreeDirectTool
-                    ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black'
-                    : 'bg-blue-600 hover:bg-blue-500 text-white'
-                }`}
+                className="px-5 sm:px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 cursor-pointer"
               >
-                {isFreeDirectTool ? 'Buka Nota (Gratis)' : isCompletedSession ? 'Buka Lagi' : 'Buka'}
+                {isCompletedSession ? 'Buka Lagi' : 'Buka'}
               </button>
             )}
           </div>

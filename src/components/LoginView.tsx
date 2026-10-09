@@ -22,8 +22,7 @@ import {
   Phone,
   CheckCircle2,
   Crown,
-  UserCheck,
-  Receipt
+  UserCheck
 } from 'lucide-react';
 import { AppUser, RolesConfig } from '../types';
 import { 
@@ -635,35 +634,8 @@ export const LoginView: React.FC<LoginViewProps> = ({
             </div>
           </div>
 
-          {/* Direct Shortcut to Menu No 11 (Nota Jilid / Kasir Hardcover) */}
-          <div className="mt-5 p-3.5 rounded-2xl bg-gradient-to-r from-amber-950/40 via-slate-900 to-emerald-950/40 border border-amber-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/40">
-                <Receipt className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-white">Menu No. 11: Nota Jilid & Kasir Pembayaran</span>
-                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                    Bebas Akses
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400">
-                  Akses langsung cetak nota jilid & kalkulasi biaya tanpa perlu login
-                </p>
-              </div>
-            </div>
-            <a
-              href="/notajilid"
-              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 shadow-md shrink-0 cursor-pointer"
-            >
-              <span>Buka Nota Jilid</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </a>
-          </div>
-
           {/* WhatsApp Admin Support Link */}
-          <div className="mt-4 flex flex-col items-center gap-2">
+          <div className="mt-5 flex flex-col items-center gap-2">
             <a
               href="https://wa.me/6285231176597?text=Halo%20Admin%20ZAIN.NET%2C%20saya%20ingin%20bertanya%20seputar%20pendaftaran%20akun%20mahasiswa."
               target="_blank"

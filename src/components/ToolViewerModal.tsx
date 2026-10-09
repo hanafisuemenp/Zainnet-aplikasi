@@ -27,7 +27,6 @@ import { SkripsiPaginatorFixedView } from './SkripsiPaginatorFixedView';
 import { PhotoGridView } from '../photoGrid/PhotoGridView';
 import { Label103View } from '../label103/Label103View';
 import GabungFileApp from '../gabungFile/App';
-import { NotaHardcover } from './NotaHardcover';
 
 interface ToolViewerModalProps {
   tool: ToolItem | null;
@@ -184,13 +183,11 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
       tool.id === 'foto-1' ||
       tool.id === 'label-103' ||
       tool.id === 'gabung-1' ||
-      tool.id === 'nota-1' ||
       tool.url === 'internal://skripsi-paginator' ||
       tool.url === 'internal://skripsi-paginator-fixed' ||
       tool.url === 'internal://docx-photo-grid' ||
       tool.url === 'internal://label-103' ||
-      tool.url === 'internal://gabung-file' ||
-      tool.url === 'internal://nota-hardcover';
+      tool.url === 'internal://gabung-file';
     setIsLoading(!isInternalPaginator);
     hasTriggeredFinishRef.current = false;
     const startStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -624,13 +621,11 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
       tool.id === 'foto-1' ||
       tool.id === 'label-103' ||
       tool.id === 'gabung-1' ||
-      tool.id === 'nota-1' ||
       tool.url === 'internal://skripsi-paginator' ||
       tool.url === 'internal://skripsi-paginator-fixed' ||
       tool.url === 'internal://docx-photo-grid' ||
       tool.url === 'internal://label-103' ||
-      tool.url === 'internal://gabung-file' ||
-      tool.url === 'internal://nota-hardcover';
+      tool.url === 'internal://gabung-file';
     setIsLoading(!isInternalPaginator);
     setIframeKey((prev) => prev + 1);
     addLog('action', 'Pengguna menyegarkan (reload) tampilan modul.');
@@ -1063,10 +1058,6 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
                 );
               }}
             />
-          </div>
-        ) : tool.id === 'nota-1' || tool.url === 'internal://nota-hardcover' ? (
-          <div key={iframeKey} className="w-full h-full overflow-y-auto bg-[#0a0f1d]">
-            <NotaHardcover onBackToHome={onClose} />
           </div>
         ) : (
           <iframe

@@ -93,14 +93,6 @@ export const ModuleGrid: React.FC<ModuleGridProps> = ({
         return 'bg-purple-600';
       case 7:
         return 'bg-teal-600';
-      case 8:
-        return 'bg-emerald-600';
-      case 9:
-        return 'bg-amber-600';
-      case 10:
-        return 'bg-cyan-600';
-      case 11:
-        return 'bg-rose-600';
       default:
         return 'bg-indigo-600';
     }
@@ -163,44 +155,16 @@ export const ModuleGrid: React.FC<ModuleGridProps> = ({
 
         <button 
           onClick={() => {
-            if (onSelectCategoryTab) onSelectCategoryTab('3');
-            onToggleSection(3);
+            if (onSelectCategoryTab) onSelectCategoryTab('4');
+            onToggleSection(4);
           }}
           className={`px-3.5 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-            selectedCategoryTab === '3' && !filterFavoritesOnly
+            selectedCategoryTab === '4' && !filterFavoritesOnly
               ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
               : 'bg-[#090e1a] border border-gray-800 hover:border-gray-700 text-gray-400'
           }`}
         >
-          Penomoran & TOC (3)
-        </button>
-
-        <button 
-          onClick={() => {
-            if (onSelectCategoryTab) onSelectCategoryTab('10');
-            onToggleSection(10);
-          }}
-          className={`px-3.5 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-            selectedCategoryTab === '10' && !filterFavoritesOnly
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-              : 'bg-[#090e1a] border border-gray-800 hover:border-gray-700 text-gray-400'
-          }`}
-        >
-          Gabung File (10)
-        </button>
-
-        <button 
-          onClick={() => {
-            if (onSelectCategoryTab) onSelectCategoryTab('11');
-            onToggleSection(11);
-          }}
-          className={`px-3.5 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-            selectedCategoryTab === '11' && !filterFavoritesOnly
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-              : 'bg-[#090e1a] border border-gray-800 hover:border-gray-700 text-gray-400'
-          }`}
-        >
-          Nota Hardcover (11)
+          Penyusunan & Lainnya (2)
         </button>
 
         {onToggleFilterFavorites && (

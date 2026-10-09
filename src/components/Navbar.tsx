@@ -24,8 +24,7 @@ import {
   Layers,
   Flame,
   Zap,
-  FileCheck,
-  FileText
+  FileCheck
 } from 'lucide-react';
 import { UserRole, DailyTrafficStat } from '../types';
 
@@ -44,8 +43,8 @@ interface NavbarProps {
   pendingVerificationCount?: number;
   walletBalance?: number;
   todayTraffic?: DailyTrafficStat | null;
-  currentView?: 'tools' | 'blog' | 'agc_blog' | 'template_jurnal' | 'nota';
-  onNavigateView?: (view: 'tools' | 'blog' | 'agc_blog' | 'template_jurnal' | 'nota') => void;
+  currentView?: 'tools' | 'blog' | 'agc_blog' | 'template_jurnal';
+  onNavigateView?: (view: 'tools' | 'blog' | 'agc_blog' | 'template_jurnal') => void;
   onOpenBatchUpload?: () => void;
   makalahCount?: number;
   agcPostsCount?: number;
@@ -223,16 +222,16 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         </button>
 
-          <a
-            href="https://tmpfiles.org/wdAzfZW4LLfX/zainnet_template_redesign.zip"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Download Nota"
-            className="hover:text-emerald-300 transition-all cursor-pointer flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-emerald-950/50 hover:bg-emerald-900/60 border border-emerald-500/30 text-xs font-semibold text-emerald-200 shadow-sm"
+        {isAdmin && onOpenAgcAutoPost && (
+          <button
+            onClick={onOpenAgcAutoPost}
+            title="Auto Post Berita Viral Hari Ini ke Blog AGC"
+            className="hover:text-amber-300 transition-all cursor-pointer flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-amber-950/50 hover:bg-amber-900/60 border border-amber-500/30 text-xs font-semibold text-amber-200 shadow-sm"
           >
-            <FileText className="w-3.5 h-3.5 text-emerald-400 fill-current" />
-            <span className="hidden lg:inline">Nota</span>
-          </a>
+            <Zap className="w-3.5 h-3.5 text-amber-400 fill-current" />
+            <span className="hidden lg:inline">Auto Post AGC</span>
+          </button>
+        )}
 
         <button 
           onClick={() => {
@@ -524,16 +523,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                 SINTA/Scopus
               </span>
             </button>
-              <a 
-                href="https://tmpfiles.org/wdAzfZW4LLfX/zainnet_template_redesign.zip"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-left py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-2 text-emerald-300"
+            {isAdmin && onOpenAgcAutoPost && (
+              <button 
+                onClick={() => {
+                  onOpenAgcAutoPost();
+                  setMobileMenuOpen(false);
+                }}
+                className="text-left py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-2 text-amber-300"
               >
-                <FileText className="w-4 h-4 text-emerald-400 fill-current" />
-                <span>Nota</span>
-              </a>
+                <Zap className="w-4 h-4 text-amber-400 fill-current" />
+                <span>Auto Post AGC Viral</span>
+              </button>
+            )}
             <button 
               onClick={() => {
                 const el = document.getElementById('panduan-pembayaran');

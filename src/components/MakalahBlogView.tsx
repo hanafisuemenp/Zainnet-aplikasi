@@ -144,16 +144,7 @@ export const MakalahBlogView: React.FC<MakalahBlogViewProps> = ({
   // Update SEO when selected post changes
   useEffect(() => {
     if (selectedPost) {
-      updatePageSeo({
-        title: `${selectedPost.title} - Repositori Karya Ilmiah ZAIN.NET`,
-        description: selectedPost.excerpt || selectedPost.autoDescription || selectedPost.title,
-        url: window.location.href,
-        type: 'article',
-        author: selectedPost.author,
-        publishedTime: new Date(selectedPost.createdAt || selectedPost.publishedAt || Date.now()).toISOString(),
-        section: selectedPost.theme || selectedPost.category,
-        tags: selectedPost.tags
-      });
+      updatePageSeo(selectedPost);
       recordMakalahView(selectedPost.id).catch(console.warn);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {

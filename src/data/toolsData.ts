@@ -61,7 +61,6 @@ export const defaultCustomPrices: CustomPricesConfig = {
     'foto-1': 5000,
     'label-103': 5000,
     'gabung-1': 5000,
-    'nota-1': 5000,
   },
   categoryPrices: {
     1: 35000,
@@ -74,7 +73,6 @@ export const defaultCustomPrices: CustomPricesConfig = {
     8: 5000,
     9: 5000,
     10: 5000,
-    11: 5000,
   },
   allAccessPriceRp: 50000,
   resellerDiscountPercentage: 50,
@@ -458,28 +456,6 @@ export const categoriesData: ToolCategory[] = [
         url: "internal://gabung-file",
         description: "Otomatis gabungkan lembar scan pengesahan, persetujuan, surat penelitian, kartu bimbingan ke dalam berkas .docx skripsi dengan OCR pintar dan pemetaan otomatis.",
         badge: "Gabung File • Auto .DOCX",
-        priceRp: 5000,
-      }
-    ]
-  },
-  {
-    id: 11,
-    number: 11,
-    title: "Pembuatan Nota Hardcover & Jilid Skripsi",
-    subtitle: "Aplikasi kasir otomatis cetak nota percetakan & jilid hardcover skripsi UIN Madura",
-    description: "Aplikasi pembuatan nota otomatis untuk percetakan & jilid hardcover skripsi, kalkulasi otomatis durasi pengerjaan (kilat/standar), pemilihan fakultas/prodi & warna cover, layanan CD, pisah file perpus, cetak struk nota PDF, dan riwayat pesanan.",
-    iconName: "Receipt",
-    packagePriceRp: 5000,
-    tools: [
-      {
-        id: "nota-1",
-        categoryId: 11,
-        number: 1,
-        title: "Generator Nota Hardcover Skripsi (Otomatis)",
-        domain: "nota.zain.net",
-        url: "internal://nota-hardcover",
-        description: "Sistem kasir & cetak nota hardcover skripsi otomatis dengan invoice PDF, barcode, dan integrasi WhatsApp.",
-        badge: "Nota Hardcover • Cetak Cepat",
         priceRp: 5000,
       }
     ]

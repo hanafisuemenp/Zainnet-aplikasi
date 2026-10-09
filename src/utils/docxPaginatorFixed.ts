@@ -4,7 +4,6 @@ import {
   findTocKeywordParagraphIndex,
   hasArabicScript,
   isArabicTocHeadingKeyword,
-  isProposalDocument,
   normalizeArabicKey,
   processDocumentTocWorkflow,
   stripArabicDiacritics,
@@ -39,7 +38,6 @@ export interface DocumentAnalysis {
   totalParagraphs: number;
   totalExistingSections: number;
   numberingProfile: DocumentNumberingProfile;
-  isProposal?: boolean;
   sections: ThesisSection[];
   detectedIssues: string[];
   isCompliant: boolean;
@@ -197,16 +195,16 @@ export function isSemanticBabTitle(p: Element, text: string, n: number): boolean
     3: /^(?:(?:III|0?3|C)[\s.):\-]+)?(?:METODE\s+PENELITIAN|METODOLOGI\s+PENELITIAN|METODE\s+DAN\s+PROSEDUR(?:\s+PENELITIAN)?|OBJEK\s+DAN\s+METODE\s+PENELITIAN|GAMBARAN\s+UMUM(?:\s+OBJEK\s+PENELITIAN)?|PENUTUP|KESIMPULAN(?:\s+DAN\s+SARAN)?)$/i,
     4: /^(?:(?:IV|0?4|D)[\s.):\-]+)?(?:HASIL\s+(?:PENELITIAN\s+)?(?:DAN\s+)?PEMBAHASAN|PEMBAHASAN|PAPARAN\s+DATA(?:\s+DAN\s+TEMUAN\s+PENELITIAN)?|TEMUAN\s+(?:PENELITIAN\s+)?(?:DAN\s+)?PEMBAHASAN|ANALISIS\s+(?:DATA\s+)?DAN\s+PEMBAHASAN|HASIL\s+PENELITIAN)$/i,
     5: /^(?:(?:V|0?5|E)[\s.):\-]+)?(?:PENUTUP|PEMBAHASAN|DISKUSI|KESIMPULAN(?:\s*,?\s*IMPLIKASI\s*,?\s*DAN\s+SARAN|\s+DAN\s+SARAN|\s+DAN\s+REKOMENDASI)?|SIMPULAN(?:\s*,?\s*IMPLIKASI\s*,?\s*DAN\s+SARAN|\s+DAN\s+SARAN|\s+DAN\s+REKOMENDASI)?)$/i,
-    6: /^(?:(?:B\s*A\s*B\s*)?(?:VI|0?6|F)[\s.):\-]+)(?:PENUTUP|KESIMPULAN(?:\s*,?\s*IMPLIKASI\s*,?\s*DAN\s+SARAN|\s+DAN\s+SARAN|\s+DAN\s+REKOMENDASI)?|SIMPULAN(?:\s*,?\s*IMPLIKASI\s*,?\s*DAN\s+SARAN|\s+DAN\s+SARAN|\s+DAN\s+REKOMENDASI)?)$/i
+    6: /^(?:(?:VI|0?6|F)[\s.):\-]+)?(?:PENUTUP|KESIMPULAN(?:\s*,?\s*IMPLIKASI\s*,?\s*DAN\s+SARAN|\s+DAN\s+SARAN|\s+DAN\s+REKOMENDASI)?|SIMPULAN(?:\s*,?\s*IMPLIKASI\s*,?\s*DAN\s+SARAN|\s+DAN\s+SARAN|\s+DAN\s+REKOMENDASI)?)$/i
   };
 
   const arabPatterns: Record<number, RegExp> = {
     1: /^(?:(?:I|0?1|١|ا|اولا)[\s.):\-–—]+)?(?:المقدمه|مقدمه(?:\s+البحث|\s+الدراسه)?|خلفيه\s+البحث(?:\s+ومشكلته)?|خلفيه\s+الدراسه|خطه\s+البحث|الاطار\s+العام(?:\s+للبحث|\s+للدراسه)?)\s*$/,
     2: /^(?:(?:II|0?2|٢|ب|ثانيا)[\s.):\-–—]+)?(?:الاطار\s+النظري(?:\s+والدراسات\s+السابقه)?|الدراسات\s+السابقه|المراجعه\s+الادبيه|الجانب\s+النظري|تاصيل\s+المفاهيم|المفاهيم\s+الاساسيه|المناقشه|البحث\s+والمناقشه|العرض\s+والمناقشه)\s*$/,
     3: /^(?:(?:III|0?3|٣|ج|ت|ثالثا)[\s.):\-–—]+)?(?:منهج\s+البحث|منهجيه\s+البحث|منهج\s+الدراسه|اجراءات\s+البحث|طريقه\s+البحث|خطوات\s+البحث|الجانب\s+الميداني|وصف\s+ميدان\s+البحث|الخاتمه|خاتمه\s+البحث|الخلاصه(?:\s+والتوصيات|\s+والاقتراحات)?)\s*$/,
-    4: /^(?:(?:IV|0?4|٤|د|ث|رابعا)[\s.):\-–—]+)?(?:نتائج\s+البحث(?:\s+ومناقشتها)?|نتائج\s+الدراسه(?:\s+ومناقشتها)?|عرض\s+البيانات(?:\s+وتحليلها|\s+ومناقشتها)?|تحليل\s+البيانات(?:\s+وتحليلها)?|النتائج\s+والمناقشه|عرض\s+النتائج(?:\s+ومناقشتها)?|الجانب\s+التطبيقي)\s*$/,
+    4: /^(?:(?:IV|0?4|٤|د|ث|رابعا)[\s.):\-–—]+)?(?:نتائج\s+البحث(?:\s+ومناقشتها)?|نتائج\s+الدراسه(?:\s+ومناقشتها)?|عرض\s+البيانات(?:\s+وتحليلها|\s+ومناقشتها)?|تحليل\s+البيانات(?:\s+ومناقشتها)?|النتائج\s+والمناقشه|عرض\s+النتائج(?:\s+ومناقشتها)?|الجانب\s+التطبيقي)\s*$/,
     5: /^(?:(?:V|0?5|٥|هـ|ه|ج|خامسا)[\s.):\-–—]+)?(?:الخاتمه|خاتمه\s+البحث|خاتمه\s+الدراسه|النتائج\s+والتوصيات|النتائج\s+والاقتراحات|الخلاصه(?:\s+والاقتراحات|\s+والتوصيات)?)\s*$/,
-    6: /^(?:(?:الباب\s+)?(?:السادس|VI|0?6|٦|سادسا)[\s.):\-–—]+)(?:الخاتمه|خاتمه\s+البحث|خاتمه\s+الدراسه|النتائج\s+والتوصيات|النتائج\s+والاقتراحات|الخلاصه(?:\s+والاقتراحات|\s+والتوصيات)?)\s*$/
+    6: /^(?:(?:VI|0?6|٦|و|ح|سادسا)[\s.):\-–—]+)?(?:الخاتمه|خاتمه\s+البحث|خاتمه\s+الدراسه|النتائج\s+والتوصيات|النتائج\s+والاقتراحات|الخلاصه(?:\s+والاقتراحات|\s+والتوصيات)?)\s*$/
   };
 
   if (arabPatterns[n] && arabPatterns[n].test(arabKey)) return true;
@@ -490,36 +488,13 @@ function headingEvidence(
 function findBabIndexes(
   paragraphs: Element[],
   toc: Array<{ start: number; end: number }>,
-  maxBab: number = 6,
-  numberingProfile: DocumentNumberingProfile = 'skripsi'
+  maxBab: number = 6
 ): Record<number, number> {
   const found: Record<number, number> = {};
   let previous = -1;
   let preferredArabKind: 'bab' | 'fasl' | 'mabhath' | null = null;
 
-  // Khusus Proposal Penelitian: proposal tidak memiliki bab-bab (BAB I..V)
-  // melainkan satu kesatuan isi yang dimulai dari judul/awal proposal.
-  const isProposalMode =
-    numberingProfile === 'proposal' ||
-    numberingProfile === 'arab-proposal';
-
-  if (isProposalMode) {
-    const proposalJudulIdx = findProposalJudulIndex(paragraphs);
-    if (proposalJudulIdx >= 0) {
-      found[1] = proposalJudulIdx;
-    }
-    return found;
-  }
-
-  // Standar Skripsi: 5 Bab (BAB I..V). Hanya Tesis yang mendeteksi BAB VI.
-  const effectiveMaxBab =
-    numberingProfile === 'skripsi'
-      ? 5
-      : numberingProfile === 'tesis' || numberingProfile === 'arab-tesis'
-      ? 6
-      : Math.min(maxBab, 6);
-
-  for (let n = 1; n <= effectiveMaxBab; n++) {
+  for (let n = 1; n <= maxBab; n++) {
     // 0. Direct bookmark match if previously tagged by paginator/TOC processor
     let bmIdx = -1;
     for (let i = Math.max(0, previous + 1); i < paragraphs.length; i++) {
@@ -539,10 +514,6 @@ function findBabIndexes(
     // 1. Primary pass: explicit BAB / CHAPTER / الباب headings outside TOC ranges
     for (let i = Math.max(0, previous + 1); i < paragraphs.length; i++) {
       if (inRanges(i, toc)) continue;
-      // Jangan pernah jadikan paragraf sub-judul (misal "PENUTUP" tepat di bawah "BAB V") sebagai bab baru!
-      if (previous >= 0 && i <= previous + 3 && !isBabHeading(getParagraphText(paragraphs[i]), n)) {
-        continue;
-      }
       const evidence = headingEvidence(paragraphs, i, n, false, preferredArabKind);
       if (Number.isFinite(evidence)) candidates.push({ i, evidence });
     }
@@ -551,33 +522,21 @@ function findBabIndexes(
     if (!candidates.length) {
       for (let i = Math.max(0, previous + 1); i < paragraphs.length; i++) {
         if (isTocEntryOrListParagraph(paragraphs[i])) continue;
-        if (previous >= 0 && i <= previous + 3 && !isBabHeading(getParagraphText(paragraphs[i]), n)) {
-          continue;
-        }
         const evidence = headingEvidence(paragraphs, i, n, false, preferredArabKind);
         if (Number.isFinite(evidence)) candidates.push({ i, evidence });
       }
     }
 
     // 3. Semantic pass: Word auto-numbered Heading 1 / centered chapter titles (e.g. PENDAHULUAN, المقدمة)
-    // Lewati semantic pass jika bab sebelumnya sudah merupakan bab penutup (PENUTUP / KESIMPULAN / الخاتمة)
+    // Skip semantic pass for n >= 4 if chapter 3 was already the closing chapter (PENUTUP / الخاتمة)
     let alreadyClosedAtPrevBab = false;
     if (n >= 4 && found[n - 1] !== undefined) {
       const prevTitle = getParagraphText(paragraphs[found[n - 1]]);
-      let prevSubTitle = '';
-      for (let k = found[n - 1] + 1; k < Math.min(paragraphs.length, found[n - 1] + 4); k++) {
-        const txt = getParagraphText(paragraphs[k]).trim();
-        if (txt) { prevSubTitle = txt; break; }
-      }
       const prevNorm = normalize(prevTitle);
-      const prevSubNorm = normalize(prevSubTitle);
       const prevArab = normalizeArabicKey(prevTitle);
-      const prevSubArab = normalizeArabicKey(prevSubTitle);
       if (
         /\b(?:PENUTUP|KESIMPULAN|SIMPULAN)\b/i.test(prevNorm) ||
-        /\b(?:PENUTUP|KESIMPULAN|SIMPULAN)\b/i.test(prevSubNorm) ||
-        /(?:الخاتمه|الخلاصه|النتائج\s+والتوصيات)/.test(prevArab) ||
-        /(?:الخاتمه|الخلاصه|النتائج\s+والتوصيات)/.test(prevSubArab)
+        /(?:الخاتمه|الخلاصه|النتائج\s+والتوصيات)/.test(prevArab)
       ) {
         alreadyClosedAtPrevBab = true;
       }
@@ -586,7 +545,6 @@ function findBabIndexes(
     if (!candidates.length && !alreadyClosedAtPrevBab) {
       for (let i = Math.max(0, previous + 1); i < paragraphs.length; i++) {
         if (inRanges(i, toc) || isTocEntryOrListParagraph(paragraphs[i])) continue;
-        if (previous >= 0 && i <= previous + 3) continue;
         const evidence = headingEvidence(paragraphs, i, n, true, preferredArabKind);
         if (Number.isFinite(evidence)) candidates.push({ i, evidence });
       }
@@ -603,114 +561,7 @@ function findBabIndexes(
     }
   }
 
-  // Jika naskah adalah Proposal (tidak ada BAB I), deteksi A. Judul Penelitian sebagai titik awal halaman 1
-  if (found[1] === undefined) {
-    const proposalJudulIdx = findProposalJudulIndex(paragraphs);
-    if (proposalJudulIdx >= 0) {
-      found[1] = proposalJudulIdx;
-    }
-  }
-
   return found;
-}
-
-function isInsideAnySdt(p: Element): boolean {
-  let n: Node | null = p.parentNode;
-  while (n && n.nodeType === 1) {
-    if (localName(n as Element) === 'sdt') return true;
-    n = n.parentNode;
-  }
-  return false;
-}
-
-export function findProposalJudulIndex(paragraphs: Element[]): number {
-  // 1. Pass Utama: Deteksi judul/bab awal proposal eksplisit di luar SDT/TOC
-  for (let i = 0; i < paragraphs.length; i++) {
-    const p = paragraphs[i];
-    if (isInsideAnySdt(p) || isTocEntryOrListParagraph(p)) continue;
-
-    const t = getParagraphText(p).trim();
-    if (!t || t.includes('.....') || t.includes('. . .')) continue;
-    const norm = normalize(t);
-    const arabKey = normalizeArabicKey(t);
-
-    // a. Deteksi BAB I / BAB 1 / BAB I PENDAHULUAN (beberapa kampus memakai BAB I di proposal)
-    if (
-      /^(?:B\s*A\s*B|CHAPTER|BAGIAN)\s*[:.\-–—\t]?\s*(?:I|0?1|SATU|PERTAMA)\b/i.test(norm) ||
-      /^(?:الباب|الفصل)\s+(?:الاول|١|1)\b/.test(arabKey)
-    ) {
-      return i;
-    }
-
-    // b. Deteksi A. Judul Penelitian / Judul Proposal / Judul Skripsi / Judul / PROPOSAL PENELITIAN
-    if (
-      /^(?:[A-Z0-9IVX]+\s*[:.\-–—\t]\s*)*(?:JUDUL\s+PENELITIAN|JUDUL\s+PROPOSAL|JUDUL\s+SKRIPSI)\b/i.test(norm) ||
-      /^(?:[A-Z0-9IVX]+\s*[:.\-–—\t]\s*)+JUDUL\b/i.test(norm) ||
-      /^(?:JUDUL\s+PENELITIAN|JUDUL\s+PROPOSAL|JUDUL\s+SKRIPSI)\b/i.test(norm) ||
-      /^(?:PROPOSAL\s+(?:PENELITIAN|SKRIPSI|TESIS))\b/i.test(norm) ||
-      /^(?:[أابتثجحخدذرزسشصضطظعغفقكلمنهوي١1]\s*[:.\-–—\t]\s*)*(?:عنوان\s+البحث|عنوان\s+الرساله|العنوان|خطه\s+البحث)\b/.test(arabKey)
-    ) {
-      return i;
-    }
-
-    // c. Deteksi A. Konteks Penelitian / Latar Belakang / Pendahuluan / Fokus / Rumusan
-    if (
-      /^(?:[A-Z0-9IVX]+\s*[:.\-–—\t]\s*)+(?:KONTEKS\s+PENELITIAN|LATAR\s+BELAKANG(?:\s+MASALAH)?|PENDAHULUAN|FOKUS\s+PENELITIAN|RUMUSAN\s+MASALAH|IDENTIFIKASI\s+MASALAH)\b/i.test(norm) ||
-      /^(?:[أابتثجحخدذرزسشصضطظعغفقكلمنهوي١1]\s*[:.\-–—\t]\s*)*(?:خلفية\s+البحث|مقدمة\s+البحث|مشكلة\s+البحث|تحديد\s+المشكله)\b/.test(arabKey)
-    ) {
-      return i;
-    }
-  }
-
-  // 2. Pass Kedua: cari Konteks Penelitian, Latar Belakang, Pendahuluan tanpa prefix A/1
-  for (let i = 0; i < paragraphs.length; i++) {
-    const p = paragraphs[i];
-    if (isInsideAnySdt(p) || isTocEntryOrListParagraph(p)) continue;
-
-    const t = getParagraphText(p).trim();
-    if (!t || t.includes('.....') || t.includes('. . .')) continue;
-    const norm = normalize(t);
-    const arabKey = normalizeArabicKey(t);
-    if (
-      /^(?:KONTEKS\s+PENELITIAN|LATAR\s+BELAKANG(?:\s+MASALAH)?|PENDAHULUAN|FOKUS\s+PENELITIAN|RUMUSAN\s+MASALAH)\b/i.test(norm) ||
-      /^(?:خلفية\s+البحث|مقدمة\s+البحث|مشكلة\s+البحث)\b/.test(arabKey)
-    ) {
-      return i;
-    }
-  }
-
-  // 3. Pass Ketiga (Fallback Aman): jika tidak ada heading spesifik di atas, cari paragraf teks pertama
-  // setelah Cover atau setelah Front Matter (misal lembar pengesahan / daftar isi proposal)
-  let seenPageBreak = false;
-  for (let i = 0; i < paragraphs.length; i++) {
-    const p = paragraphs[i];
-    if (isInsideAnySdt(p) || isTocEntryOrListParagraph(p)) continue;
-
-    if (hasPageBreak(p) || (i > 0 && !!child(child(paragraphs[i - 1], 'pPr') || paragraphs[i - 1], 'sectPr'))) {
-      seenPageBreak = true;
-      const t = getParagraphText(p).trim();
-      if (t && !isFrontMatterHeading(t) && t.length > 5) {
-        return i;
-      }
-      continue;
-    }
-    if (seenPageBreak) {
-      const t = getParagraphText(p).trim();
-      if (t && !isFrontMatterHeading(t) && t.length > 5) {
-        return i;
-      }
-    }
-  }
-
-  // 4. Fallback Terakhir: kembalikan paragraf teks pertama setelah paragraf 0
-  for (let i = 1; i < paragraphs.length; i++) {
-    const p = paragraphs[i];
-    if (isInsideAnySdt(p) || isTocEntryOrListParagraph(p)) continue;
-    const t = getParagraphText(p).trim();
-    if (t && !isFrontMatterHeading(t)) return i;
-  }
-
-  return paragraphs.length > 1 ? 1 : 0;
 }
 
 function isFrontMatterHeading(text: string): boolean {
@@ -779,21 +630,12 @@ function desiredBoundaries(
   paragraphs: Element[],
   bab: Record<number, number>,
   existing?: SectionStart[],
-  maxBab: number = 6,
-  isProposal: boolean = false
+  maxBab: number = 6
 ): number[] {
   const starts = new Set<number>([0]);
   const front = findFrontStart(paragraphs, bab[1] ?? -1, existing);
   if (front > 0) starts.add(front);
-  if (bab[1] !== undefined) starts.add(bab[1]);
-
-  if (isProposal) {
-    // Untuk Proposal: seluruh isi proposal dari Judul sampai Daftar Pustaka
-    // berada dalam satu kesatuan section yang sama bernomor 1.. di bawah tengah.
-    return [...starts].sort((a, b) => a - b);
-  }
-
-  for (let n = 2; n <= maxBab; n++) if (bab[n] !== undefined) starts.add(bab[n]);
+  for (let n = 1; n <= maxBab; n++) if (bab[n] !== undefined) starts.add(bab[n]);
 
   const lastBabIdx = Math.max(0, ...Object.values(bab));
   let back = -1;
@@ -1604,18 +1446,8 @@ async function attachPart(
   setRef(sect, refKind, type, id);
 }
 
-function classify(
-  start: number,
-  bab: Record<number, number>,
-  back: number,
-  maxBab: number = 6,
-  isProposal: boolean = false
-): ThesisSection['type'] {
+function classify(start: number, bab: Record<number, number>, back: number, maxBab: number = 6): ThesisSection['type'] {
   if (start === 0) return 'cover';
-  if (isProposal) {
-    if (bab[1] !== undefined && start >= bab[1]) return 'bab_1';
-    return 'front_matter';
-  }
   if (start === bab[1]) return 'bab_1';
   for (let n = 2; n <= maxBab; n++) if (start === bab[n]) return 'bab_other';
   if (back >= 0 && start >= back) return 'back_matter';
@@ -1796,59 +1628,41 @@ export async function analyzeDocx(
   const ps = bodyParagraphs(body);
   const existing = collectSectionStarts(body, ps);
   const toc = tocRanges(ps);
-  const isProposal =
-    numberingProfile === 'proposal' ||
-    numberingProfile === 'arab-proposal' ||
-    isProposalDocument(ps, numberingProfile);
-
-  // Standar Skripsi: 5 Bab (BAB I..V). Hanya Tesis yang mendeteksi BAB VI. Untuk Proposal: maxBab = 1
-  const maxBab = isProposal
-    ? 1
-    : numberingProfile === 'tesis' || numberingProfile === 'arab-tesis'
-    ? 6
-    : 5;
-  const rawBab = findBabIndexes(ps, toc, maxBab, numberingProfile);
+  // Detect up to BAB VI (especially for Tesis or documents that include BAB VI)
+  const maxBab = numberingProfile === 'tesis' ? 6 : 6;
+  const rawBab = findBabIndexes(ps, toc, maxBab);
   const bab: Record<number, number> = {};
-  for (let n = 1; n <= maxBab; n++) {
+  for (let n = 1; n <= (numberingProfile === 'skripsi' && rawBab[6] === undefined ? 5 : 6); n++) {
     if (rawBab[n] !== undefined) bab[n] = rawBab[n];
   }
   const bab1 = bab[1] ?? -1;
 
   const lastBabIdx = Math.max(0, ...Object.values(bab));
   let back = -1;
-  if (!isProposal) {
-    for (let i = lastBabIdx + 1; i < ps.length; i++) {
-      if (!isTocEntryOrListParagraph(ps[i]) && isBackHeading(getParagraphText(ps[i]))) {
-        back = i;
-        break;
-      }
+  for (let i = lastBabIdx + 1; i < ps.length; i++) {
+    if (!isTocEntryOrListParagraph(ps[i]) && isBackHeading(getParagraphText(ps[i]))) {
+      back = i;
+      break;
     }
   }
 
-  const boundaries = desiredBoundaries(ps, bab, existing, maxBab, isProposal);
+  const boundaries = desiredBoundaries(ps, bab, existing, 6);
   const issues: string[] = [];
   if (toc.length) issues.push('Daftar Isi/Daftar Tabel/Gambar terdeteksi dan dikecualikan dari deteksi BAB.');
-
-  if (isProposal) {
-    if (bab1 < 0) {
-      issues.push('Judul Penelitian (A. Judul Penelitian / Konteks Penelitian) belum ditemukan dengan cukup aman pada proposal ini.');
-    }
-  } else {
-    if (bab1 < 0) issues.push('BAB I tidak ditemukan dengan cukup aman.');
-    const expectedMinChapters =
-      numberingProfile === 'tesis' ? 6 : numberingProfile === 'makalah' ? 3 : 5;
-    for (let n = 2; n <= expectedMinChapters; n++) {
-      if (bab[n] === undefined) {
-        issues.push(`BAB ${['', 'I', 'II', 'III', 'IV', 'V', 'VI'][n]} tidak ditemukan dengan cukup aman.`);
-      }
+  if (bab1 < 0) issues.push('BAB I tidak ditemukan dengan cukup aman.');
+  const expectedMinChapters =
+    numberingProfile === 'tesis' ? 6 : numberingProfile === 'makalah' || numberingProfile === 'proposal' ? 3 : 5;
+  for (let n = 2; n <= expectedMinChapters; n++) {
+    if (bab[n] === undefined) {
+      issues.push(`BAB ${['', 'I', 'II', 'III', 'IV', 'V', 'VI'][n]} tidak ditemukan dengan cukup aman.`);
     }
   }
   if (!existing.length) issues.push('Section Word tidak ditemukan; batas section hanya akan dibuat pada titik yang diperlukan dan memakai geometri section sebelumnya.');
   if (findFrontStart(ps, bab1, existing) < 0) issues.push('Batas Cover 1 ke halaman awal belum dapat ditentukan dengan aman; koreksi dibatalkan agar tidak mengubah halaman cover secara keliru.');
 
   const virtual: ThesisSection[] = boundaries.map((start, idx) => {
-    const type = classify(start, bab, back, maxBab, isProposal);
-    const chapterNumber = isProposal ? (start === bab[1] ? 1 : undefined) : [1, 2, 3, 4, 5, 6].find(n => bab[n] === start);
+    const type = classify(start, bab, back, 6);
+    const chapterNumber = [1, 2, 3, 4, 5, 6].find(n => bab[n] === start);
     const isChapterStart = chapterNumber !== undefined;
     const isFirstFront = type === 'front_matter' && start === boundaries.find(x => x > 0);
     const expectedNumbering = buildExpectedNumberingForSection(
@@ -1860,9 +1674,7 @@ export async function analyzeDocx(
     const existingSection = existing.find(s => s.startParagraph === start);
     let rawTitle = getParagraphText(ps[start] || ps[0]).slice(0, 100);
     if (chapterNumber && !isBabHeading(rawTitle, chapterNumber)) {
-      if (isProposal) {
-        // Jangan beri prefix BAB untuk judul naskah Proposal Penelitian!
-      } else if (hasArabicScript(rawTitle) || numberingProfile === 'arab') {
+      if (hasArabicScript(rawTitle) || numberingProfile === 'arab') {
         const arabNames = ['', 'الباب الأول', 'الباب الثاني', 'الباب الثالث', 'الباب الرابع', 'الباب الخامس', 'الباب السادس'];
         rawTitle = `${arabNames[chapterNumber]} : ${rawTitle}`.slice(0, 100);
       } else {
@@ -1878,9 +1690,7 @@ export async function analyzeDocx(
       sectionOrdinal: idx,
       chapterNumber,
       expectedNumbering,
-      currentStatus: isProposal
-        ? { hasNumberingIssue: false, issues: [] }
-        : numberingStatus(existingSection?.sectPr || null, expectedNumbering, !!existingSection),
+      currentStatus: numberingStatus(existingSection?.sectPr || null, expectedNumbering, !!existingSection),
       isChapterStart
     };
   });
@@ -1948,7 +1758,6 @@ export async function analyzeDocx(
       fileName, fileSizeBytes: file.size, totalParagraphs: ps.length,
       totalExistingSections: existing.length,
       numberingProfile,
-      isProposal,
       sections: virtual,
       detectedIssues: issues, isCompliant: bab1 >= 0 && allSectionsCompliant,
       toc: {
@@ -2035,130 +1844,6 @@ function cleanRedundantBreaksAtBoundary(paragraphs: Element[], startIdx: number)
         if (stopScanning) break;
       }
       break;
-    }
-  }
-}
-
-/**
- * Memastikan judul bab (misal BAB V) dan sub-judulnya (misal PENUTUP) 100% selalu berada
- * di halaman yang sama dengan menggabungkannya ke dalam 1 paragraf Word fisik yang sama
- * dipisahkan soft line break (<w:r><w:br/></w:r>, Shift+Enter).
- * Menghapus segala sectPr, pageBreakBefore, dan hard page break dari babP dan subP
- * agar tidak mungkin dipisahkan oleh Word ke halaman berbeda.
- */
-function ensureBabAndSubtitleStayOnSamePage(
-  paragraphs: Element[],
-  rules: ThesisSection[]
-): void {
-  for (const rule of rules) {
-    if (!rule.isChapterStart || rule.paragraphIndex < 0 || rule.paragraphIndex >= paragraphs.length) continue;
-    const babIdx = rule.paragraphIndex;
-    const babP = paragraphs[babIdx];
-    if (!babP || !babP.parentNode) continue;
-    const babText = getParagraphText(babP).trim();
-
-    const normBab = normalize(babText);
-    const arabKeyBab = normalizeArabicKey(babText);
-
-    // Cek apakah babP merupakan judul bab singkat (misal "BAB V", "BAB I", "الباب الأول")
-    const isBare =
-      /^(?:B\s*A\s*B|CHAPTER|BAGIAN)\s*[:.\-–—\t]?\s*(?:[IVX]+|\d+|SATU|PERTAMA|DUA|KEDUA|TIGA|KETIGA|EMPAT|KEEMPAT|LIMA|KELIMA|ENAM|KEENAM)[.:\-\s]*$/i.test(normBab) ||
-      /^(?:الباب|الفصل|المبحث)\s+(?:الاول|الثاني|الثالث|الرابع|الخامس|السادس|[١-٦]|[1-6])\s*[:.\-–—]?\s*$/.test(arabKeyBab) ||
-      (hasArabicScript(babText) && normBab.length <= 40);
-
-    if (isBare) {
-      const emptyBetween: Element[] = [];
-      let foundSubP: Element | null = null;
-
-      // Cari paragraf sub-judul hingga 4 paragraf ke depan
-      for (let k = babIdx + 1; k < Math.min(paragraphs.length, babIdx + 5); k++) {
-        const candP = paragraphs[k];
-        if (!candP || !candP.parentNode) continue;
-        const candText = getParagraphText(candP).trim();
-        if (!candText) {
-          emptyBetween.push(candP);
-          continue;
-        }
-
-        const candNorm = normalize(candText);
-        const candArab = normalizeArabicKey(candText);
-        const isAnotherChap =
-          /^(?:B\s*A\s*B|CHAPTER|BAGIAN)\s+[0-9IVX]+/i.test(candNorm) ||
-          /^(?:الباب|الفصل)\s+/i.test(candArab) ||
-          /^(?:DAFTAR\s+PUSTAKA|KEPUSTAKAAN|LAMPIRAN)\b/i.test(candNorm);
-
-        if (candText.length <= 120 && !isAnotherChap && !isTocEntryOrListParagraph(candP)) {
-          foundSubP = candP;
-        }
-        break;
-      }
-
-      if (foundSubP) {
-        const doc = babP.ownerDocument!;
-
-        // 1. Bersihkan sectPr, pageBreakBefore, dan hard break dari babP
-        const babPPr = child(babP, 'pPr');
-        if (babPPr) {
-          const babSect = child(babPPr, 'sectPr');
-          if (babSect) babPPr.removeChild(babSect);
-          const pbb = child(babPPr, 'pageBreakBefore');
-          if (pbb) babPPr.removeChild(pbb);
-        }
-        for (const br of Array.from(babP.getElementsByTagNameNS(W_NS, 'br'))) {
-          if (/^page$/i.test(attr(br, 'type')) && br.parentNode) {
-            br.parentNode.removeChild(br);
-          }
-        }
-
-        // 2. Bersihkan sectPr, pageBreakBefore, dan hard break dari foundSubP
-        const subPPr = child(foundSubP, 'pPr');
-        if (subPPr) {
-          const subSect = child(subPPr, 'sectPr');
-          if (subSect) subPPr.removeChild(subSect);
-          const pbb = child(subPPr, 'pageBreakBefore');
-          if (pbb) subPPr.removeChild(pbb);
-        }
-        for (const br of Array.from(foundSubP.getElementsByTagNameNS(W_NS, 'br'))) {
-          if (/^page$/i.test(attr(br, 'type')) && br.parentNode) {
-            br.parentNode.removeChild(br);
-          }
-        }
-
-        // 3. Sisipkan soft line break run <w:r><w:br/></w:r> ke babP agar judul & sub-judul tetap 2 baris visual
-        const brRun = doc.createElementNS(W_NS, 'w:r');
-        brRun.appendChild(doc.createElementNS(W_NS, 'w:br'));
-        babP.appendChild(brRun);
-
-        // 4. Pindahkan seluruh run & teks dari foundSubP ke dalam babP (fisik menyatu)
-        for (const ch of Array.from(foundSubP.childNodes)) {
-          if (ch.nodeType === 1 && localName(ch as Element) === 'pPr') continue;
-          babP.appendChild(ch);
-        }
-
-        // 5. Hapus paragraf kosong perantara dan foundSubP dari DOM
-        for (const emp of emptyBetween) {
-          if (emp.parentNode) emp.parentNode.removeChild(emp);
-        }
-        if (foundSubP.parentNode) {
-          foundSubP.parentNode.removeChild(foundSubP);
-        }
-
-        // 6. Pasang keepWithNext dan jc center pada babP
-        let finalBabPPr = child(babP, 'pPr');
-        if (!finalBabPPr) {
-          finalBabPPr = doc.createElementNS(W_NS, 'w:pPr');
-          babP.insertBefore(finalBabPPr, babP.firstChild);
-        }
-        if (!child(finalBabPPr, 'keepWithNext')) {
-          finalBabPPr.appendChild(doc.createElementNS(W_NS, 'w:keepWithNext'));
-        }
-        let jc = child(finalBabPPr, 'jc');
-        if (!jc) {
-          jc = doc.createElementNS(W_NS, 'w:jc');
-          finalBabPPr.appendChild(jc);
-        }
-        setVal(jc, 'val', 'center');
-      }
     }
   }
 }
@@ -2272,19 +1957,8 @@ export async function correctThesisDocx(
     body.appendChild(bodySect);
   }
 
-  // Jamin judul bab (misal BAB V) dan sub-judulnya (misal PENUTUP) 100% selalu berada di 1 halaman yang sama
-  // tanpa ada page break tersembunyi atau pemisahan yang keliru.
-  ensureBabAndSubtitleStayOnSamePage(ps, rulesForCorrection);
-  ps = bodyParagraphs(body);
-  for (const r of rulesForCorrection) {
-    if (r.chapterNumber && r.chapterNumber >= 1 && r.chapterNumber <= 6) {
-      const idx = ps.findIndex(p => getParagraphBabBookmark(p) === r.chapterNumber);
-      if (idx >= 0) r.paragraphIndex = idx;
-    }
-  }
-
   // Clean redundant breaks at major section boundaries and insert section breaks
-  // so every BAB (termasuk BAB V & PENUTUP dalam 1 halaman) and DAFTAR PUSTAKA starts cleanly on a new page.
+  // so every BAB (especially BAB V) and DAFTAR PUSTAKA starts cleanly on a new page.
   for (const s of [...rulesForCorrection].sort((a, b) => b.paragraphIndex - a.paragraphIndex)) {
     if (s.paragraphIndex > 0) {
       cleanRedundantBreaksAtBoundary(ps, s.paragraphIndex);
@@ -2591,69 +2265,5 @@ export async function createSampleArabicThesisDocx(): Promise<Blob> {
     )
     .join('');
   zip.file('word/document.xml', `<?xml version="1.0"?><w:document xmlns:w="${W_NS}" xmlns:r="${R_NS}"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2268" w:right="1701" w:bottom="1701" w:left="2268"/><w:bidi/></w:sectPr></w:body></w:document>`);
-  return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-}
-
-export async function createSampleProposalDocx(): Promise<Blob> {
-  const zip = new JSZip();
-  zip.file('[Content_Types].xml', `<?xml version="1.0"?><Types xmlns="${TYPES_NS}"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
-  zip.file('_rels/.rels', `<?xml version="1.0"?><Relationships xmlns="${RELS_NS}"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
-  zip.file('word/_rels/document.xml.rels', `<?xml version="1.0"?><Relationships xmlns="${RELS_NS}"></Relationships>`);
-  const paras = [
-    { text: 'PROPOSAL PENELITIAN SKRIPSI', br: false, bold: true },
-    { text: 'MANAJEMEN STRATEGI PENGUATAN PROGRAM TAHFIDZ QUR’AN', br: false, bold: true },
-    { text: 'HALAMAN JUDUL PROPOSAL', br: true, bold: true },
-    { text: 'LEMBAR PERSETUJUAN PROPOSAL', br: true, bold: true },
-    { text: 'DAFTAR ISI', br: true, bold: true },
-    // Mulai dari A. Judul Penelitian = Halaman 1
-    { text: 'A. Judul Penelitian', br: true, bold: true },
-    { text: 'Manajemen Strategi Penguatan Program Tahfidz Qur’an pada Lembaga Pendidikan Islam.', br: false },
-    { text: 'B. Konteks Penelitian', br: false, bold: true },
-    { text: 'Uraian konteks penelitian dan fenomena penting di lapangan mengenai tahfidz Qur’an.', br: false },
-    { text: 'C. Fokus Penelitian', br: false, bold: true },
-    { text: '1. Bagaimana konsep penguatan program tahfidz?\n2. Bagaimana implementasi perencanaan?', br: false },
-    { text: 'D. Tujuan Penelitian', br: false, bold: true },
-    { text: 'Mengetahui dan menganalisis strategi pelaksanaan program tahfidz.', br: false },
-    { text: 'E. Kegunaan Penelitian', br: false, bold: true },
-    { text: 'Memberikan sumbangsih teoritis dan praktis bagi pengembangan kurikulum tahfidz.', br: false },
-    { text: 'F. Definisi Istilah', br: false, bold: true },
-    { text: 'Penjelasan batasan istilah operasional dalam proposal penelitian.', br: false },
-    { text: 'G. Kajian Terdahulu', br: false, bold: true },
-    { text: 'Telaah penelitian-penelitian terdahulu yang relevan.', br: false },
-    { text: 'H. Kajian Teori', br: false, bold: true },
-    { text: 'Kajian Manajemen Program Tahfidz Qur’an', br: false, bold: true },
-    { text: 'a. Konsep Program Tahfidz Qur’an', br: false },
-    { text: 'Konsep dasar dan landasan yuridis serta filosofis program tahfidz.', br: false },
-    { text: 'b. Perencanaan dan evaluasi Manajemen Program tahfidz', br: false },
-    { text: 'Siklus POAC dalam manajemen tahfidz.', br: false },
-    { text: 'Kajian Strategi penguatan perencanaan(Planning)', br: false, bold: true },
-    { text: 'a. konsep penguatan perencanaan', br: false },
-    { text: 'b. implementasi kebijakan perencanaan program tahfidz', br: false },
-    { text: 'kajian Strategi penguatan evaluasi(evaluating)', br: false, bold: true },
-    { text: 'a. Manajemen strategi penguatan evaluasi', br: false },
-    { text: 'b. teknik evaluasi tahfidz qur’an', br: false },
-    { text: 'c. tindak lanjut evaluasi', br: false },
-    { text: 'Metode Penelitian', br: false, bold: true },
-    { text: 'Pendekatan dan Jenis Penelitian', br: false, bold: true },
-    { text: 'Penelitian ini menggunakan pendekatan kualitatif dengan jenis studi kasus.', br: false },
-    { text: 'Kehadiran Peneliti', br: false, bold: true },
-    { text: 'Lokasi Penelitian', br: false, bold: true },
-    { text: 'Sumber Data', br: false, bold: true },
-    { text: 'pengumpulan data', br: false, bold: true },
-    { text: 'analisis data', br: false, bold: true },
-    { text: 'Pengecekan Keabsahan Data', br: false, bold: true },
-    { text: 'Tahap-Tahap Penelitian', br: false, bold: true },
-    { text: 'I. Sistematika Penulisan', br: false, bold: true },
-    { text: 'Uraian sistematika penulisan proposal dari judul hingga daftar pustaka.', br: false },
-    { text: 'J. Daftar pustaka', br: false, bold: true },
-    { text: 'Moleong, Lexy J. (2021). Metodologi Penelitian Kualitatif. Bandung: Remaja Rosdakarya.', br: false }
-  ];
-  const body = paras
-    .map(
-      p =>
-        `<w:p>${p.br ? '<w:r><w:br w:type="page"/></w:r>' : ''}<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>${p.bold ? '<w:b/>' : ''}<w:sz w:val="24"/></w:rPr><w:t>${p.text}</w:t></w:r></w:p>`
-    )
-    .join('');
-  zip.file('word/document.xml', `<?xml version="1.0"?><w:document xmlns:w="${W_NS}" xmlns:r="${R_NS}"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2268" w:right="1701" w:bottom="1701" w:left="2268"/></w:sectPr></w:body></w:document>`);
   return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }

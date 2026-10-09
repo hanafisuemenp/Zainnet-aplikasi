@@ -95,38 +95,6 @@ function normalize(s: string): string {
     .trim();
 }
 
-export function isProposalDocument(paragraphs: Element[], profile: DocumentNumberingProfile): boolean {
-  if (profile === 'proposal' || profile === 'arab-proposal') return true;
-
-  // Cek apakah ada BAB I / CHAPTER
-  for (let i = 0; i < Math.min(paragraphs.length, 250); i++) {
-    const raw = getParaText(paragraphs[i]);
-    const norm = normalize(raw);
-    const arabKey = normalizeArabicKey(raw);
-    if (/^(?:B\s*A\s*B|CHAPTER)\s+[0-9IVX]+/i.test(norm) || /^(?:الباب|الفصل)\s+/i.test(arabKey)) {
-      return false;
-    }
-  }
-
-  // Cek apakah ada indikator Proposal (A. Judul Penelitian, Konteks Penelitian, Fokus Penelitian, dsb.)
-  for (let i = 0; i < Math.min(paragraphs.length, 250); i++) {
-    const raw = getParaText(paragraphs[i]);
-    const norm = normalize(raw);
-    const arabKey = normalizeArabicKey(raw);
-    if (
-      /^(?:A\s*[:.\-–—\t]\s*)?(?:JUDUL\s+PENELITIAN|JUDUL\s+PROPOSAL|JUDUL\s+SKRIPSI)\b/i.test(norm) ||
-      /^(?:A\s*[:.\-–—\t]\s*)?JUDUL\b/i.test(norm) ||
-      /^(?:B\s*[:.\-–—\t]\s*)?(?:KONTEKS\s+PENELITIAN|LATAR\s+BELAKANG)\b/i.test(norm) ||
-      /^(?:C\s*[:.\-–—\t]\s*)?(?:FOKUS\s+PENELITIAN|RUMUSAN\s+MASALAH)\b/i.test(norm) ||
-      /^(?:أ\s*[:.\-–—\t]\s*)?(?:عنوان\s+البحث|خلفية\s+البحث)\b/.test(arabKey)
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 export function getParaText(p: Element): string {
   let result = '';
   function walk(node: Node) {
@@ -472,25 +440,18 @@ function mergeSubtitleIntoBabParagraph(
   if (!babP.ownerDocument || !subP.parentNode) return;
   const doc = babP.ownerDocument;
 
-  // Remove any section break from subP and babP so the chapter doesn't prematurely break into a new section
+  // If subP had a section break (<w:sectPr>) in its <w:pPr>, move it to babP's <w:pPr>
   const subPPr = child(subP, 'pPr');
-  if (subPPr) {
-    const subSect = child(subPPr, 'sectPr');
-    if (subSect) subPPr.removeChild(subSect);
-    const pbb = child(subPPr, 'pageBreakBefore');
-    if (pbb) subPPr.removeChild(pbb);
-  }
-  const babPPr = child(babP, 'pPr');
-  if (babPPr) {
-    const babSect = child(babPPr, 'sectPr');
-    if (babSect) babPPr.removeChild(babSect);
-    const pbb = child(babPPr, 'pageBreakBefore');
-    if (pbb) babPPr.removeChild(pbb);
-  }
-  // Remove hard page breaks inside subP
-  for (const br of Array.from(subP.getElementsByTagNameNS(W_NS, 'br'))) {
-    if (/^page$/i.test(attr(br, 'type')) && br.parentNode) {
-      br.parentNode.removeChild(br);
+  const subSect = subPPr ? child(subPPr, 'sectPr') : null;
+  if (subSect && subPPr) {
+    subPPr.removeChild(subSect);
+    let babPPr = child(babP, 'pPr');
+    if (!babPPr) {
+      babPPr = doc.createElementNS(W_NS, 'w:pPr');
+      babP.insertBefore(babPPr, babP.firstChild);
+    }
+    if (!child(babPPr, 'sectPr')) {
+      babPPr.appendChild(subSect);
     }
   }
 
@@ -1038,7 +999,7 @@ export function processDocumentTocWorkflow(
   numberingProfile: DocumentNumberingProfile = 'skripsi'
 ): TocWorkflowResult {
   const revisionLogs: string[] = [];
-  let bab1Idx = babIndexes[1] ?? -1;
+  const bab1Idx = babIndexes[1] ?? -1;
 
   const { hasOpenXmlToc, sdtElement } = detectOpenXmlToc(docXml);
   const tocKeywordIdx = findTocKeywordParagraphIndex(paragraphs, bab1Idx);
@@ -1211,37 +1172,8 @@ export function processDocumentTocWorkflow(
   }
 
   // Scan body from BAB I onwards to detect Level 1, Level 2, Level 3 headings and check numbering hierarchy
-  const isProposalMode = isProposalDocument(paragraphs, numberingProfile);
-  if (isProposalMode && bab1Idx < 0) {
-    for (let idx = 0; idx < paragraphs.length; idx++) {
-      let insideSdt = false;
-      let parentNode: Node | null = paragraphs[idx].parentNode;
-      while (parentNode && parentNode.nodeType === 1) {
-        if (localName(parentNode as Element) === 'sdt') {
-          insideSdt = true;
-          break;
-        }
-        parentNode = parentNode.parentNode;
-      }
-      if (insideSdt) continue;
-
-      const t = normalize(getParaText(paragraphs[idx]));
-      const arabKey = normalizeArabicKey(getParaText(paragraphs[idx]));
-      if (
-        /^(?:B\s*A\s*B|CHAPTER)\s*[:.\-–—\t]?\s*(?:I|0?1)\b/i.test(t) ||
-        /^(?:[A-Z0-9IVX]+\s*[:.\-–—\t]\s*)*(?:JUDUL\s+PENELITIAN|JUDUL\s+PROPOSAL|JUDUL\s+SKRIPSI|PROPOSAL)\b/i.test(t) ||
-        /^(?:[A-Z0-9IVX]+\s*[:.\-–—\t]\s*)+JUDUL\b/i.test(t) ||
-        /^(?:[A-Z0-9IVX]+\s*[:.\-–—\t]\s*)*(?:KONTEKS\s+PENELITIAN|LATAR\s+BELAKANG|PENDAHULUAN|FOKUS\s+PENELITIAN|RUMUSAN\s+MASALAH)\b/i.test(t) ||
-        /^(?:[أابتثجحخدذرزسشصضطظعغفقكلمنهوي١1]\s*[:.\-–—\t]\s*)*(?:عنوان\s+البحث|خلفية\s+البحث|مقدمة|مشكلة\s+البحث)\b/.test(arabKey)
-      ) {
-        bab1Idx = idx;
-        break;
-      }
-    }
-  }
-
   const bodyHeadings: BodyHeadingItem[] = [];
-  let currentBab = isProposalMode ? 1 : 0;
+  let currentBab = 0;
   let expectedL2 = 0;
   let expectedL3 = 0;
   let currentChapterUsesLetterL2 = false;
@@ -1254,135 +1186,6 @@ export function processDocumentTocWorkflow(
     if (!rawText || rawText.length > 200) continue;
     const norm = normalize(rawText);
     const arabKey = normalizeArabicKey(rawText);
-
-    // PROPOSAL HEADING DETECTOR (Khusus Naskah Proposal Penelitian):
-    if (isProposalMode) {
-      const rawTrimmed = rawText.trim();
-
-      // Abaikan jika hanya berupa nomor halaman sisa (seperti "iv", "iii", "12")
-      if (/^(?:[ivxlcdm]+|\d+)\s*$/i.test(rawTrimmed)) continue;
-
-      const isExplicitLetterL1 =
-        /^(?:[A-Z]\s*[:.\-–—\t]\s*)+/.test(rawTrimmed) ||
-        /^(?:[أابتثجحخدذرزسشصضطظعغفقكلمنهوي]|هـ)\s*[:.\-–—\t]/.test(rawTrimmed);
-      const isNamedProposalL1 = /^(?:BAB\s+[0-9IVX]+|JUDUL\s+PENELITIAN|JUDUL\s+PROPOSAL|JUDUL\s+SKRIPSI|PROPOSAL|KONTEKS\s+PENELITIAN|LATAR\s+BELAKANG(?:\s+MASALAH)?|PENDAHULUAN|FOKUS\s+PENELITIAN|RUMUSAN\s+MASALAH|TUJUAN\s+PENELITIAN|KEGUNAAN\s+PENELITIAN|MANFAAT\s+PENELITIAN|DEFINISI\s+ISTILAH|BATASAN\s+ISTILAH|KAJIAN\s+TERDAHULU|PENELITIAN\s+TERDAHULU|KAJIAN\s+TEORI|LANDASAN\s+TEORI|METODE\s+PENELITIAN|SISTEMATIKA\s+PENULISAN|SISTEMATIKA\s+PEMBAHASAN|DAFTAR\s+PUSTAKA|DAFTAR\s+RUJUKAN)\b/i.test(
-        norm.replace(/^(?:[A-Z0-9\u0600-\u06FF]\s*[:.\-–—\t]\s*)+/, '')
-      );
-      const isNamedArabProposalL1 = /^(?:الباب\s+[١-٦1-6]|عنوان\s+البحث|خلفية\s+البحث|مقدمة|مشكلات\s+البحث|أهداف\s+البحث|فوائد\s+البحث|أهمية\s+البحث|تعريف\s+المصطلحات|الدراسات\s+السابقة|الإطار\s+النظري|منهجية\s+البحث|هيكل\s+البحث|المصادر\s+والمراجع)\b/.test(
-        arabKey.replace(/^(?:[A-Z0-9\u0600-\u06FF]\s*[:.\-–—\t]\s*)+/, '')
-      );
-
-      // Level 3 Check FIRST: "a. Konsep Program...", "b. Perencanaan...", "1. ..."
-      const mPropL3 = rawText.match(/^(?:([a-z])\s*[.):\-–—\t]|([0-9٠-٩]+)\s*[.):\-–—\t])\s*(.+)$/);
-      if (
-        mPropL3 &&
-        mPropL3[3].length <= 130 &&
-        !/[.؟!]\s*$/.test(mPropL3[3].trim()) &&
-        (expectedL2 > 0 || bodyHeadings.length > 0)
-      ) {
-        expectedL3++;
-        const pfx = (mPropL3[1] || mPropL3[2]) + '.';
-        const restTitle = mPropL3[3].replace(/\s+/g, ' ').trim();
-        const bmId = ++bookmarkCounter;
-        const bmName = `_TocProp3_${i}_${bmId}`;
-        bodyHeadings.push({
-          paragraph: p,
-          paragraphIndex: i,
-          level: 3,
-          chapterNum: 1,
-          originalPrefix: pfx,
-          numberPrefix: pfx,
-          titleText: restTitle,
-          fullText: `${pfx} ${restTitle}`,
-          estimatedPage: paragraphPageMap.get(i) || formatBodyMatterPage(1, numberingProfile),
-          bookmarkName: bmName
-        });
-        if (shouldTagAllHeadings) {
-          applyHeadingTag(p, 3, {
-            preserveCenter: false,
-            bookmarkId: bmId,
-            bookmarkName: bmName,
-            isArabic: isArabicDoc
-          });
-          taggedL3++;
-        }
-        continue;
-      }
-
-      // Level 1 Check: "A. Judul Penelitian", "B. Konteks...", "Metode Penelitian", dsb.
-      if (
-        (isExplicitLetterL1 || isNamedProposalL1 || isNamedArabProposalL1) &&
-        rawText.length <= 120 &&
-        !/[.؟!]\s*$/.test(rawTrimmed)
-      ) {
-        currentBab = 1;
-        expectedL2 = 0;
-        expectedL3 = 0;
-        const bmId = ++bookmarkCounter;
-        const bmName = `_TocProp1_${i}_${bmId}`;
-        bodyHeadings.push({
-          paragraph: p,
-          paragraphIndex: i,
-          level: 1,
-          chapterNum: 1,
-          numberPrefix: isExplicitLetterL1 ? rawTrimmed.split(/[:.\-–—\t]/)[0] + '.' : '',
-          titleText: rawTrimmed,
-          fullText: rawTrimmed,
-          estimatedPage: paragraphPageMap.get(i) || formatBodyMatterPage(1, numberingProfile),
-          bookmarkName: bmName
-        });
-        if (shouldTagAllHeadings) {
-          applyHeadingTag(p, 1, {
-            preserveCenter: false,
-            bookmarkId: bmId,
-            bookmarkName: bmName,
-            isArabic: isArabicDoc
-          });
-          taggedL1++;
-        }
-        continue;
-      }
-
-      // Level 2 Check: Sub-judul proposal (Kajian ..., Pendekatan ..., Kehadiran ..., dsb.)
-      const isKnownSubTopic = /^(?:Kajian\s+|Pendekatan\s+dan\s+Jenis|Kehadiran\s+Peneliti|Lokasi\s+Penelitian|Sumber\s+Data|Pengumpulan\s+Data|Analisis\s+Data|Pengecekan\s+Keabsahan|Tahap-Tahap\s+Penelitian|Tahapan\s+Penelitian)/i.test(
-        norm
-      );
-      const isShortHeadingCandidate =
-        (hasBoldFormatting(p) || getExistingHeadingLevel(p) !== null || isKnownSubTopic) &&
-        rawText.length <= 100 &&
-        !/[.؟!]\s*$/.test(rawTrimmed) &&
-        !isManualTocLine(p);
-
-      if (isShortHeadingCandidate && bodyHeadings.length > 0) {
-        expectedL2++;
-        expectedL3 = 0;
-        const bmId = ++bookmarkCounter;
-        const bmName = `_TocProp2_${i}_${bmId}`;
-        bodyHeadings.push({
-          paragraph: p,
-          paragraphIndex: i,
-          level: 2,
-          chapterNum: 1,
-          numberPrefix: '',
-          titleText: rawTrimmed,
-          fullText: rawTrimmed,
-          estimatedPage: paragraphPageMap.get(i) || formatBodyMatterPage(1, numberingProfile),
-          bookmarkName: bmName
-        });
-        if (shouldTagAllHeadings) {
-          applyHeadingTag(p, 2, {
-            preserveCenter: false,
-            bookmarkId: bmId,
-            bookmarkName: bmName,
-            isArabic: isArabicDoc
-          });
-          taggedL2++;
-        }
-        continue;
-      }
-
-      continue; // Lewati teks paragraf isi biasa
-    }
 
     // 1. Check Level 1: BAB I..VI or الباب الأول..السادس
     const matchedBab = [1, 2, 3, 4, 5, 6].find(n => babIndexes[n] === i);

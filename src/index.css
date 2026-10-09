@@ -1,25 +1,379 @@
 @import "tailwindcss";
 
-@layer utilities {
-  @media print {
-    body {
-      background: white !important;
-      color: black !important;
-      font-size: 12pt;
-    }
-    .no-print {
-      display: none !important;
-    }
-    .print-only {
-      display: block !important;
-    }
-    .printable-invoice {
-      box-shadow: none !important;
-      border: 1px solid #ddd !important;
-      margin: 0 !important;
-      width: 100% !important;
-      max-width: 100% !important;
-      page-break-inside: avoid;
-    }
+:root {
+  color-scheme: dark;
+  --background: #030712;
+  --foreground: #ffffff;
+}
+
+html {
+  color-scheme: dark;
+  background-color: #030712;
+  color: #ffffff;
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scrollbar-color: #3b82f6 #090e1a;
+  scrollbar-width: thin;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: #030712;
+  color: #ffffff;
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+/* Template Exact Theme Classes */
+.bg-card {
+  background-color: #0d1322;
+  border: 1px solid #1f293d;
+}
+
+.bg-card-header {
+  background-color: #090e1a;
+}
+
+.bg-btn {
+  background-color: #0e172a;
+  border: 1px solid #27354e;
+}
+
+.bg-btn:hover {
+  background-color: #1e293b;
+}
+
+/* Vibrant Card and Container Highlights */
+.glow-subtle {
+  box-shadow: 0 0 25px -5px rgba(59, 130, 246, 0.15);
+}
+
+.glow-emerald {
+  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.2);
+}
+
+.glow-indigo {
+  box-shadow: 0 0 25px -5px rgba(79, 70, 229, 0.25);
+}
+
+.glow-amber {
+  box-shadow: 0 0 25px -5px rgba(245, 158, 11, 0.2);
+}
+
+/* Ensure backdrop blur elements maintain solid dark fallback on PC Chrome / Linux GPU rendering */
+@supports not (backdrop-filter: blur(1px)) {
+  .backdrop-blur-md,
+  .backdrop-blur-sm,
+  .backdrop-blur-xl {
+    background-color: rgba(13, 19, 34, 0.98) !important;
   }
 }
+
+/* Cross-browser custom scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: #090e1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1f293d;
+  border-radius: 9999px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3b82f6;
+}
+
+/* Input and form control dark mode reinforcement for Chrome Windows/Linux */
+input, select, textarea, button {
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   DOCUMENT & MAKALAH READER STYLING - SOLID DEEP BLACK (#000000)
+   Ensures article content is pitch-black, crisp, and high-contrast on white pages
+   ========================================================================== */
+.article-content,
+.article-content * {
+  color: #000000 !important;
+}
+
+.article-content p,
+.article-content div,
+.article-content span,
+.article-content li,
+.article-content ol,
+.article-content ul,
+.article-content td,
+.article-content th,
+.article-content blockquote,
+.article-content section,
+.article-content article {
+  color: #000000 !important;
+}
+
+.article-content h1,
+.article-content h2,
+.article-content h3,
+.article-content h4,
+.article-content h5,
+.article-content h6,
+.article-content strong,
+.article-content b {
+  color: #000000 !important;
+  font-weight: 700 !important;
+}
+
+.article-content p {
+  color: #000000 !important;
+  line-height: 1.75;
+}
+
+.article-content h2 {
+  border-bottom: 1px solid #cbd5e1;
+  padding-bottom: 0.35rem;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.article-content table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.article-content table,
+.article-content th,
+.article-content td {
+  border: 1px solid #cbd5e1 !important;
+  color: #000000 !important;
+}
+
+.article-content th {
+  background-color: #f1f5f9 !important;
+  font-weight: 700 !important;
+}
+
+/* ==========================================================================
+   SUPER SEO BLOGGER TEMPLATE (ZAIN.NET UPDATE BERITA) STYLING
+   ========================================================================== */
+.forads {
+  display: block;
+  font-family: Roboto, Arial, sans-serif;
+  color: #000000 !important;
+  line-height: 1.7;
+  text-align: right;
+}
+
+.forads h1,
+.forads h2, 
+.forads h3, 
+.forads h4,
+.forads h5 {
+  color: #000000 !important;
+  font-family: Arial, sans-serif;
+  letter-spacing: -0.3px;
+  font-weight: 800;
+  line-height: 1.4;
+  margin: 1.25rem 0 0.5rem 0;
+  text-align: right;
+}
+
+.forads h2 {
+  font-size: 21px;
+  border-bottom: 2px solid #ea5e00;
+  padding-bottom: 5px;
+}
+
+.forads h3 {
+  font-size: 18px;
+}
+
+.forads h4 {
+  font-size: 16px;
+}
+
+.forads p {
+  margin: 0.85rem 0;
+  line-height: 1.75;
+  color: #000000 !important;
+  font-weight: 500;
+  text-align: right;
+}
+
+.forads span,
+.forads div,
+.forads strong,
+.forads em {
+  color: #000000 !important;
+}
+
+/* Force formerly black/dark columns and cards to pure white background and solid black font */
+.forads .bg-slate-900,
+.forads .bg-slate-900\/90,
+.forads .bg-slate-900\/80,
+.forads .bg-slate-800,
+.forads .bg-black,
+.forads [class*="bg-slate-"],
+.forads [class*="bg-zinc-"],
+.forads [class*="bg-neutral-"] {
+  background-color: #ffffff !important;
+  border: 1px solid #dcdcdc !important;
+  color: #000000 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.forads .text-white,
+.forads .text-slate-200,
+.forads .text-slate-300,
+.forads .text-slate-400,
+.forads .text-slate-500,
+.forads .text-gray-200,
+.forads .text-gray-300 {
+  color: #000000 !important;
+}
+
+.forads a {
+  color: #0044cc !important;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.forads a:hover {
+  color: #ea5e00 !important;
+}
+
+.forads blockquote {
+  border-right: 5px solid #ea5e00;
+  border-left: none;
+  margin: 14px 0;
+  padding: 12px 16px;
+  font-style: italic;
+  background-color: #ffffff !important;
+  border: 1px solid #e5e5e5;
+  border-right: 5px solid #ea5e00;
+  color: #000000 !important;
+  border-radius: 4px;
+  text-align: right;
+}
+
+.forads table {
+  background: #ffffff !important;
+  border: 1px solid #cccccc;
+  border-collapse: collapse;
+  margin: 16px 0;
+  width: 100%;
+}
+
+.forads th, 
+.forads td {
+  border: 1px solid #cccccc;
+  padding: 10px 12px;
+  text-align: right;
+  vertical-align: top;
+  font-size: 13px;
+  color: #000000 !important;
+}
+
+.forads th {
+  background: #f0f0f0 !important;
+  color: #000000 !important;
+  font-weight: bold;
+}
+
+.forads tr:nth-child(even) td {
+  background: #fafafa !important;
+}
+
+.forads ul,
+.forads ol {
+  margin: 10px 0 14px 0;
+  padding-right: 20px;
+  padding-left: 0;
+  direction: rtl;
+  text-align: right;
+}
+
+.forads ul {
+  list-style-type: disc;
+}
+
+.forads ol {
+  list-style-type: decimal;
+}
+
+.forads li {
+  margin-bottom: 6px;
+  color: #000000 !important;
+  text-align: right;
+  direction: ltr;
+}
+
+.forads figure {
+  text-align: right;
+  margin: 1.5rem 0;
+}
+
+.forads figcaption {
+  text-align: right;
+  color: #000000 !important;
+  font-size: 12px;
+  margin-top: 6px;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   LABEL UNDANGAN 103 WORKSPACE & PRINT STYLES
+   ========================================================================== */
+.label103-workspace,
+.label103-workspace input,
+.label103-workspace select,
+.label103-workspace textarea,
+.label103-workspace button {
+  color-scheme: light;
+}
+
+@media print {
+  @page {
+    size: 200mm 140mm; /* Ukuran Kertas Label Undangan 103 (20 × 14 cm) - Bukan Letter/A4 */
+    margin: 0;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-area {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .print-page-break {
+    page-break-after: always;
+    break-after: page;
+  }
+}
+
+
+
