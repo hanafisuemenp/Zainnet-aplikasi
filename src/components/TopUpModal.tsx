@@ -21,12 +21,12 @@ import { User } from 'firebase/auth';
 import { QRCodeSVG } from 'qrcode.react';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
-import { PaymentConfig, UserPurchase } from '../types';
+import { PaymentConfig, UserPurchase, AppUser } from '../types';
 
 interface TopUpModalProps {
   isOpen: boolean;
   onClose: () => void;
-  user: User | null;
+  user: User | AppUser | null;
   currentBalance: number;
   paymentConfig: PaymentConfig;
   onTopUpSuccess?: (newBalance: number) => void;

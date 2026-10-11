@@ -4,11 +4,19 @@ export type ResizeMode = 'smart_crop' | 'stretch' | 'fit_pad';
 
 export type AutoRotateMode = 'keep' | 'auto_rotate_to_target';
 
-export type SizeLayoutMode = 'uniform' | 'per_row';
+export type SizeLayoutMode = 'uniform' | 'per_row' | 'multi_size_mix';
 
 export type PaperType = 'A4' | 'F4' | 'Letter' | 'Custom';
 
 export type Orientation = 'portrait' | 'landscape';
+
+export type MultiSizePackingMode = 'compact_side_by_side' | 'grouped_rows';
+
+export interface MultiSizeCopies {
+  size2x3?: number; // 2x3 cm
+  size3x4?: number; // 3x4 cm
+  size4x6?: number; // 4x6 cm
+}
 
 export interface RowSizeConfig {
   id: string;
@@ -16,6 +24,17 @@ export interface RowSizeConfig {
   heightCm: number;
   columnsMode: 'auto' | 'custom';
   customColumns: number;
+}
+
+export interface RowCellLayout {
+  cellIndex: number;
+  widthCm: number;
+  heightCm: number;
+  sizeKey: string;
+  emuWidth: number;
+  emuHeight: number;
+  twipWidth: number;
+  twipHeight: number;
 }
 
 export interface ResolvedRowLayout {
@@ -27,6 +46,8 @@ export interface ResolvedRowLayout {
   emuHeight: number;
   twipWidth: number;
   twipHeight: number;
+  cells?: RowCellLayout[];
+  maxHeightCm?: number;
 }
 
 export interface PhotoItem {
@@ -38,7 +59,13 @@ export interface PhotoItem {
   originalHeight: number;
   dataUrl: string;
   copies: number;
+  multiSizeCopies?: MultiSizeCopies;
   rotation?: number; // Rotasi manual dalam derajat: 0, 90, 180, 270
+  isFromPdf?: boolean; // Hasil auto-compress dari PDF (KTP/STNK)
+  pdfOriginalName?: string;
+  pdfPageNumber?: number;
+  isStnk?: boolean; // Terdeteksi sebagai dokumen STNK / TBPKP
+  isKtp?: boolean; // Terdeteksi sebagai dokumen KTP
   // Processed preview cache
   processedDataUrl?: string;
   processedBlob?: Blob;
@@ -74,6 +101,7 @@ export interface GridConfig {
   resizeMode: ResizeMode;
   autoRotateMode: AutoRotateMode;
   sizeLayoutMode: SizeLayoutMode;
+  multiSizePackingMode?: MultiSizePackingMode;
   rowConfigs: RowSizeConfig[];
   paperType: PaperType;
   customPaperWidthCm: number;

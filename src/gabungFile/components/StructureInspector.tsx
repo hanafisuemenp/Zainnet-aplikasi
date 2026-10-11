@@ -63,7 +63,7 @@ export const StructureInspector: React.FC<StructureInspectorProps> = ({
               type="text"
               value={anchorKeyword}
               onChange={(e) => onAnchorKeywordChange(e.target.value)}
-              placeholder="Contoh: Lampiran Taruh disini Mulai dari sini"
+              placeholder="Contoh: karyazainnet"
               className="w-full text-xs font-bold text-slate-900 bg-white border border-blue-300 rounded-lg px-3.5 py-2 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs font-mono"
             />
           </div>

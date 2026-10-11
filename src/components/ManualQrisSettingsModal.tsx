@@ -18,14 +18,14 @@ import { ManualQrisConfig, BankAccountInfo } from '../types';
 
 interface ManualQrisSettingsModalProps {
   config: ManualQrisConfig;
-  isOpen: boolean;
+  isOpen?: boolean;
   onClose: () => void;
   onSaveConfig: (newConfig: ManualQrisConfig) => Promise<void>;
 }
 
 export const ManualQrisSettingsModal: React.FC<ManualQrisSettingsModalProps> = ({
   config,
-  isOpen,
+  isOpen = true,
   onClose,
   onSaveConfig
 }) => {

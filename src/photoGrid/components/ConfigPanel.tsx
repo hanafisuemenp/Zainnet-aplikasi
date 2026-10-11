@@ -44,10 +44,103 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
     const preset = SIZE_PRESETS.find((p) => p.id === presetId);
     if (!preset) return;
 
+    if (presetId === '3x4') {
+      onChangeConfig((prev) => ({
+        ...prev,
+        targetWidthCm: 3.0,
+        targetHeightCm: 4.0,
+        columnsMode: 'custom',
+        customColumns: 6,
+        margins: {
+          ...prev.margins,
+          leftCm: Math.min(prev.margins.leftCm, 0.8),
+          rightCm: Math.min(prev.margins.rightCm, 0.8),
+        },
+        gutterCm: Math.min(prev.gutterCm, 0.12),
+      }));
+      return;
+    }
+
+    if (presetId === '4x6') {
+      onChangeConfig((prev) => ({
+        ...prev,
+        targetWidthCm: 4.0,
+        targetHeightCm: 6.0,
+        columnsMode: 'custom',
+        customColumns: 5,
+        margins: {
+          ...prev.margins,
+          leftCm: Math.min(prev.margins.leftCm, 0.5),
+          rightCm: Math.min(prev.margins.rightCm, 0.5),
+        },
+        gutterCm: Math.min(prev.gutterCm, 0.05),
+      }));
+      return;
+    }
+
+    if (presetId === 'stnk') {
+      onChangeConfig((prev) => ({
+        ...prev,
+        paperType: 'A4',
+        orientation: 'landscape',
+        targetWidthCm: 23.0,
+        targetHeightCm: 7.5,
+        resizeMode: 'stretch',
+        margins: {
+          topCm: 1.5,
+          bottomCm: 1.5,
+          leftCm: 1.5,
+          rightCm: 1.5,
+        },
+        gutterCm: 0.2,
+      }));
+      return;
+    }
+
+    if (presetId === 'stnk_portrait') {
+      onChangeConfig((prev) => ({
+        ...prev,
+        paperType: 'A4',
+        orientation: 'portrait',
+        targetWidthCm: 7.5,
+        targetHeightCm: 23.0,
+        resizeMode: 'stretch',
+        margins: {
+          topCm: 1.5,
+          bottomCm: 1.5,
+          leftCm: 1.5,
+          rightCm: 1.5,
+        },
+        gutterCm: 0.2,
+      }));
+      return;
+    }
+
     onChangeConfig((prev) => ({
       ...prev,
       targetWidthCm: preset.widthCm,
       targetHeightCm: preset.heightCm,
+    }));
+  };
+
+  const handleApplyPaketStudio = () => {
+    onChangeConfig((prev) => ({
+      ...prev,
+      sizeLayoutMode: 'per_row',
+      rowConfigs: [
+        { id: 'row_1', widthCm: 4.0, heightCm: 6.0, columnsMode: 'custom', customColumns: 5 },
+        { id: 'row_2', widthCm: 3.0, heightCm: 4.0, columnsMode: 'custom', customColumns: 6 },
+        { id: 'row_3', widthCm: 2.0, heightCm: 3.0, columnsMode: 'custom', customColumns: 8 },
+      ],
+      margins: {
+        ...prev.margins,
+        leftCm: 0.5,
+        rightCm: 0.5,
+        topCm: 1.0,
+        bottomCm: 1.0,
+      },
+      gutterCm: 0.08,
+      rowSpacingCm: 0.3,
     }));
   };
 
@@ -158,23 +251,28 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
           </div>
         </div>
 
-        {/* Mode Ukuran Dalam 1 Kertas: Full 1 Halaman vs Per Baris */}
+        {/* Mode Ukuran Dalam 1 Kertas: Full 1 Halaman vs Per Baris vs Paket Campur */}
         <div>
           <label className="block text-xs font-medium text-neutral-700 mb-2">
-            Mode Ukuran Dalam Satu Kertas:
+            Mode Tata Letak &amp; Ukuran Kertas:
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {(
               [
                 {
                   id: 'uniform',
-                  title: 'Full 1 Halaman (1 Ukuran Sama)',
-                  desc: 'Semua baris dalam 1 kertas menggunakan ukuran yang sama (misal semua 4×6).',
+                  title: '1 Ukuran Seragam',
+                  desc: 'Semua foto di kertas berukuran sama (misal semua 4×6 atau 3×4).',
+                },
+                {
+                  id: 'multi_size_mix',
+                  title: 'Paket Campur (Hemat Kertas)',
+                  desc: 'Atur per foto: 4×6 (5/baris), 3×4 (6/baris), 2×3 (8/baris) otomatis ke samping agar hemat kertas.',
                 },
                 {
                   id: 'per_row',
-                  title: 'Ukuran Per Baris (Beda Tiap Baris)',
-                  desc: 'Contoh: Baris 1 ukuran 4×6, Baris 2 ukuran 3×4, Baris 3 ukuran 2×3.',
+                  title: 'Custom Per Baris',
+                  desc: 'Tentukan ukuran baris 1, baris 2, baris 3 secara spesifik.',
                 },
               ] as { id: SizeLayoutMode; title: string; desc: string }[]
             ).map((m) => {
@@ -204,25 +302,75 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
           </div>
         </div>
 
+        {/* Jika mode paket campur aktif, tampilkan pilihan gaya penyusunan */}
+        {config.sizeLayoutMode === 'multi_size_mix' && (
+          <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-3.5 space-y-2">
+            <span className="text-xs font-bold text-indigo-950 block">
+              Gaya Penyusunan Paket Campur:
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => onChangeConfig((p) => ({ ...p, multiSizePackingMode: 'compact_side_by_side' }))}
+                className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                  (config.multiSizePackingMode || 'compact_side_by_side') === 'compact_side_by_side'
+                    ? 'border-indigo-600 bg-white ring-1 ring-indigo-600 shadow-2xs font-semibold'
+                    : 'border-neutral-200 bg-white/70 hover:bg-white text-neutral-600'
+                }`}
+              >
+                <div className="font-bold text-neutral-900 mb-0.5">🚀 Hemat Kertas (Samping / Flow)</div>
+                <div className="text-[11px] text-neutral-500">
+                  Foto 4×6, 3×4, dan 2×3 saling mengisi ke samping hingga batas kertas, menghemat ruang secara maksimal.
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onChangeConfig((p) => ({ ...p, multiSizePackingMode: 'grouped_rows' }))}
+                className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                  config.multiSizePackingMode === 'grouped_rows'
+                    ? 'border-indigo-600 bg-white ring-1 ring-indigo-600 shadow-2xs font-semibold'
+                    : 'border-neutral-200 bg-white/70 hover:bg-white text-neutral-600'
+                }`}
+              >
+                <div className="font-bold text-neutral-900 mb-0.5">📏 Baris Terpisah (Per Ukuran)</div>
+                <div className="text-[11px] text-neutral-500">
+                  Baris 4×6 (muat 5/baris), baris 3×4 (muat 6/baris), baris 2×3 (muat 8/baris) berdiri di baris tersendiri.
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
         {config.sizeLayoutMode === 'per_row' ? (
           <div className="bg-blue-50/40 border border-blue-200/80 rounded-xl p-3.5 space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <span className="text-xs font-bold text-neutral-900 block">
                   Pengaturan Ukuran Per Baris ({config.rowConfigs.length} Baris)
                 </span>
                 <span className="text-[11px] text-neutral-500">
-                  Atur ukuran foto berbeda untuk setiap baris dalam 1 halaman kertas
+                  Paket Pas Foto: 4×6 muat 1 baris 5 foto &amp; 3×4 muat 1 baris 6 foto
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={handleAddRowConfig}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Tambah Baris
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleApplyPaketStudio}
+                  className="px-2.5 py-1 text-[11px] font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-2xs transition-colors cursor-pointer"
+                  title="Terapkan standar paket pas foto: 4x6 (5 foto) & 3x4 (6 foto)"
+                >
+                  ⚡ Paket Standar (4x6: 5 foto, 3x4: 6 foto)
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddRowConfig}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Tambah Baris
+                </button>
+              </div>
             </div>
 
             <div className="space-y-2.5">
@@ -247,8 +395,8 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                           Ukuran {rc.widthCm}×{rc.heightCm} cm
                         </span>
                         {resolved && (
-                          <span className="text-[11px] text-neutral-500 font-mono">
-                            ({resolved.columns} foto di baris ini)
+                          <span className="text-[11px] text-blue-700 font-bold font-mono bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                            {resolved.columns} foto per baris
                           </span>
                         )}
                       </div>
@@ -275,12 +423,21 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                           <button
                             key={p.id}
                             type="button"
-                            onClick={() =>
+                            onClick={() => {
+                              const extra: Partial<RowSizeConfig> = {};
+                              if (p.id === '4x6') {
+                                extra.columnsMode = 'custom';
+                                extra.customColumns = 5;
+                              } else if (p.id === '3x4') {
+                                extra.columnsMode = 'custom';
+                                extra.customColumns = 6;
+                              }
                               handleUpdateRowConfig(rc.id, {
                                 widthCm: p.widthCm,
                                 heightCm: p.heightCm,
-                              })
-                            }
+                                ...extra,
+                              });
+                            }}
                             className={`px-2.5 py-1 text-[11px] font-semibold rounded-md border transition-all cursor-pointer ${
                               isRowPreset
                                 ? 'border-blue-600 bg-blue-600 text-white'
@@ -295,11 +452,11 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                       })}
                     </div>
 
-                    {/* Custom Width & Height for this Row */}
-                    <div className="grid grid-cols-2 gap-2">
+                    {/* Custom Width, Height & Columns for this Row */}
+                    <div className="grid grid-cols-3 gap-2">
                       <div>
                         <label className="block text-[10px] font-medium text-neutral-500 mb-0.5">
-                          Lebar Baris {idx + 1} ({config.unit})
+                          Lebar ({config.unit})
                         </label>
                         <input
                           type="number"
@@ -316,12 +473,12 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                               });
                             }
                           }}
-                          className="w-full px-2.5 py-1 text-xs font-mono font-semibold bg-neutral-50 border border-neutral-300 rounded focus:ring-1 focus:ring-blue-500 focus:outline-hidden"
+                          className="w-full px-2 py-1 text-xs font-mono font-semibold bg-neutral-50 border border-neutral-300 rounded focus:ring-1 focus:ring-blue-500 focus:outline-hidden"
                         />
                       </div>
                       <div>
                         <label className="block text-[10px] font-medium text-neutral-500 mb-0.5">
-                          Tinggi Baris {idx + 1} ({config.unit})
+                          Tinggi ({config.unit})
                         </label>
                         <input
                           type="number"
@@ -338,7 +495,28 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                               });
                             }
                           }}
-                          className="w-full px-2.5 py-1 text-xs font-mono font-semibold bg-neutral-50 border border-neutral-300 rounded focus:ring-1 focus:ring-blue-500 focus:outline-hidden"
+                          className="w-full px-2 py-1 text-xs font-mono font-semibold bg-neutral-50 border border-neutral-300 rounded focus:ring-1 focus:ring-blue-500 focus:outline-hidden"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-medium text-neutral-500 mb-0.5">
+                          Muat Foto/Baris
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="12"
+                          value={rc.columnsMode === 'custom' ? rc.customColumns : resolved?.columns || 5}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            if (!isNaN(val) && val >= 1) {
+                              handleUpdateRowConfig(rc.id, {
+                                columnsMode: 'custom',
+                                customColumns: val,
+                              });
+                            }
+                          }}
+                          className="w-full px-2 py-1 text-xs font-mono font-semibold bg-neutral-50 border border-neutral-300 rounded focus:ring-1 focus:ring-blue-500 focus:outline-hidden"
                         />
                       </div>
                     </div>
@@ -349,6 +527,20 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
           </div>
         ) : (
           <>
+            {/* Quick Banner for Studio Package */}
+            <div className="p-3 bg-amber-50/90 border border-amber-200/90 rounded-lg flex flex-wrap items-center justify-between gap-2">
+              <div className="text-xs text-amber-950">
+                <span className="font-bold">⚡ Paket Standar Cetak Studio:</span> 4×6 (muat 5 foto) &amp; 3×4 (muat 6 foto/baris).
+              </div>
+              <button
+                type="button"
+                onClick={handleApplyPaketStudio}
+                className="px-3 py-1.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-md shadow-2xs transition-colors cursor-pointer"
+              >
+                Terapkan Paket Cetak Studio
+              </button>
+            </div>
+
             {/* Quick Size Presets */}
             <div>
               <div className="flex items-center justify-between mb-2">

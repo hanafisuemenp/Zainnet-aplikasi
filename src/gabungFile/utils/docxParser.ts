@@ -80,6 +80,8 @@ export const STANDARD_5_ATTACHMENTS = [
     category: 'attachment_5' as const,
     standardOrder: 4,
     keywords: [
+      'SURAT TUGAS PEMBIMBING PENYUSUNAN SKRIPSI',
+      'SURAT TUGAS PEMBIMBING PENYUSUNAN',
       'SURAT TUGAS PEMBIMBING',
       'SURAT TUGAS BIMBINGAN',
       'TUGAS PEMBIMBING',
@@ -189,15 +191,24 @@ export function matchesKeywords(text: string, keywords: string[]): boolean {
 
 export function checkAnchorKeyword(text: string, customKeyword?: string): boolean {
   const clean = text.toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+  const unspaced = clean.replace(/\s+/g, '');
 
   if (customKeyword) {
     const cleanCustom = customKeyword.toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
-    if (cleanCustom.length > 3 && clean.includes(cleanCustom)) {
+    const unspacedCustom = cleanCustom.replace(/\s+/g, '');
+    if (
+      (cleanCustom.length > 2 && clean.includes(cleanCustom)) ||
+      (unspacedCustom.length > 2 && unspaced.includes(unspacedCustom))
+    ) {
       return true;
     }
   }
 
   if (
+    clean.includes('karyazainnet') ||
+    unspaced.includes('karyazainnet') ||
+    clean.includes('karya zain net') ||
+    clean.includes('karya zain') ||
     clean.includes('taruh disini mulai dari sini') ||
     clean.includes('taruh di sini mulai dari sini') ||
     clean.includes('lampiran taruh disini') ||
@@ -492,4 +503,55 @@ export async function parseDocx(
     headingsList,
     anchorKeywordMatch,
   };
+}
+
+/**
+ * Mendeteksi nomor urutan Lampiran tertinggi yang sudah ada di dokumen sebelum titik lampiran baru.
+ * Contoh: jika di naskah sudah ada:
+ * Lampiran 1: Pernyataan keaslian tulisan
+ * Lampiran 2: Instrumen Penelitian
+ * Lampiran 3: Hasil Penelitian
+ * Maka fungsi ini mengembalikan angka 3, sehingga Surat Tugas Pembimbing otomatis menjadi Lampiran 4.
+ */
+export function findHighestExistingLampiranNumber(elements: DocxElement[], beforeIndex?: number): number {
+  let highest = 0;
+  const limit = beforeIndex !== undefined && beforeIndex >= 0 ? beforeIndex : elements.length;
+
+  for (let i = 0; i < limit; i++) {
+    const text = elements[i].text.trim();
+    if (!text || text.includes('.....') || text.includes('. . .')) continue;
+
+    // Abaikan jika ini adalah anchor itu sendiri
+    if (checkAnchorKeyword(text)) continue;
+
+    // Abaikan judul bab atau pengesahan
+    const upper = text.toUpperCase();
+    if (upper.startsWith('BAB ') || upper.startsWith('HALAMAN ')) continue;
+
+    // Cari pola Lampiran N atau LAMPIRAN N (contoh: "Lampiran 1: Pernyataan", "Lampiran 3 Hasil Penelitian")
+    const match = text.match(/\b(?:LAMPIRAN|Lampiran)\s*([0-9]+)\b/i);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (!isNaN(num) && num > highest && num < 100) {
+        highest = num;
+      }
+      continue;
+    }
+
+    // Cari juga pola romawi: LAMPIRAN I, LAMPIRAN II, LAMPIRAN III, LAMPIRAN IV
+    const matchRoman = text.match(/\b(?:LAMPIRAN|Lampiran)\s*([IVXLCDM]+)\b/i);
+    if (matchRoman) {
+      const romanStr = matchRoman[1].toUpperCase();
+      const romanMap: Record<string, number> = {
+        'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5,
+        'VI': 6, 'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10
+      };
+      const num = romanMap[romanStr];
+      if (num && num > highest) {
+        highest = num;
+      }
+    }
+  }
+
+  return highest;
 }

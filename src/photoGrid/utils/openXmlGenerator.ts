@@ -52,7 +52,217 @@ export function calculateLayout(
 
   const resolvedRows: ResolvedRowLayout[] = [];
 
-  if (config.sizeLayoutMode === 'per_row' && config.rowConfigs && config.rowConfigs.length > 0) {
+  const isMultiSize =
+    config.sizeLayoutMode === 'multi_size_mix' ||
+    photos.some((p) => {
+      const ms = p.multiSizeCopies;
+      return (ms?.size2x3 || 0) > 0 || (ms?.size3x4 || 0) > 0 || (ms?.size4x6 || 0) > 0;
+    });
+
+  if (isMultiSize) {
+    const packingMode = config.multiSizePackingMode || 'compact_side_by_side';
+
+    if (packingMode === 'compact_side_by_side') {
+      const itemsToPack: { widthCm: number; heightCm: number; sizeKey: string }[] = [];
+      for (const photo of photos) {
+        const ms = photo.multiSizeCopies;
+        const count4x6 = ms?.size4x6 || 0;
+        const count3x4 = ms?.size3x4 || 0;
+        const count2x3 = ms?.size2x3 || 0;
+        if (count4x6 > 0 || count3x4 > 0 || count2x3 > 0) {
+          for (let i = 0; i < count4x6; i++) itemsToPack.push({ widthCm: 4.0, heightCm: 6.0, sizeKey: '4x6' });
+          for (let i = 0; i < count3x4; i++) itemsToPack.push({ widthCm: 3.0, heightCm: 4.0, sizeKey: '3x4' });
+          for (let i = 0; i < count2x3; i++) itemsToPack.push({ widthCm: 2.0, heightCm: 3.0, sizeKey: '2x3' });
+        } else {
+          const count = Math.max(1, photo.copies || 1);
+          for (let i = 0; i < count; i++) {
+            itemsToPack.push({ widthCm: photoWidthCm, heightCm: photoHeightCm, sizeKey: 'default' });
+          }
+        }
+      }
+
+      // Pack photos dynamically to the right (side-by-side) to save paper
+      let currentRowCells: {
+        cellIndex: number;
+        widthCm: number;
+        heightCm: number;
+        sizeKey: string;
+        emuWidth: number;
+        emuHeight: number;
+        twipWidth: number;
+        twipHeight: number;
+      }[] = [];
+      let currentRowWidth = 0;
+      let rIdx = 0;
+
+      for (const item of itemsToPack) {
+        const neededWidth = currentRowCells.length === 0 ? item.widthCm : (item.widthCm + gutterCm);
+        if (currentRowCells.length > 0 && currentRowWidth + neededWidth > printableWidthCm + 0.05) {
+          // Wrap to new row
+          const maxH = Math.max(...currentRowCells.map(c => c.heightCm));
+          const avgW = currentRowCells.reduce((a, b) => a + b.widthCm, 0) / currentRowCells.length;
+          resolvedRows.push({
+            rowIndex: rIdx++,
+            widthCm: avgW,
+            heightCm: maxH,
+            maxHeightCm: maxH,
+            columns: currentRowCells.length,
+            emuWidth: cmToEmu(avgW),
+            emuHeight: cmToEmu(maxH),
+            twipWidth: cmToTwips(avgW),
+            twipHeight: cmToTwips(maxH),
+            cells: [...currentRowCells],
+          });
+          currentRowCells = [];
+          currentRowWidth = 0;
+        }
+
+        currentRowCells.push({
+          cellIndex: currentRowCells.length,
+          widthCm: item.widthCm,
+          heightCm: item.heightCm,
+          sizeKey: item.sizeKey,
+          emuWidth: cmToEmu(item.widthCm),
+          emuHeight: cmToEmu(item.heightCm),
+          twipWidth: cmToTwips(item.widthCm),
+          twipHeight: cmToTwips(item.heightCm),
+        });
+        currentRowWidth += currentRowCells.length === 1 ? item.widthCm : (item.widthCm + gutterCm);
+      }
+
+      if (currentRowCells.length > 0) {
+        const maxH = Math.max(...currentRowCells.map(c => c.heightCm));
+        const avgW = currentRowCells.reduce((a, b) => a + b.widthCm, 0) / currentRowCells.length;
+        resolvedRows.push({
+          rowIndex: rIdx++,
+          widthCm: avgW,
+          heightCm: maxH,
+          maxHeightCm: maxH,
+          columns: currentRowCells.length,
+          emuWidth: cmToEmu(avgW),
+          emuHeight: cmToEmu(maxH),
+          twipWidth: cmToTwips(avgW),
+          twipHeight: cmToTwips(maxH),
+          cells: [...currentRowCells],
+        });
+      }
+
+      if (resolvedRows.length === 0) {
+        resolvedRows.push({
+          rowIndex: 0,
+          widthCm: photoWidthCm,
+          heightCm: photoHeightCm,
+          columns: 6,
+          emuWidth: cmToEmu(photoWidthCm),
+          emuHeight: cmToEmu(photoHeightCm),
+          twipWidth: cmToTwips(photoWidthCm),
+          twipHeight: cmToTwips(photoHeightCm),
+        });
+      }
+    } else {
+      let total4x6 = 0;
+      let total3x4 = 0;
+      let total2x3 = 0;
+      let totalOther = 0;
+
+      for (const photo of photos) {
+        const ms = photo.multiSizeCopies;
+        const count4x6 = ms?.size4x6 || 0;
+        const count3x4 = ms?.size3x4 || 0;
+        const count2x3 = ms?.size2x3 || 0;
+        if (count4x6 > 0 || count3x4 > 0 || count2x3 > 0) {
+          total4x6 += count4x6;
+          total3x4 += count3x4;
+          total2x3 += count2x3;
+        } else {
+          totalOther += Math.max(1, photo.copies || 1);
+        }
+      }
+
+      let rIdx = 0;
+      // Baris 4x6: 5 foto per baris
+      if (total4x6 > 0) {
+        const rows4x6 = Math.ceil(total4x6 / 5);
+        for (let r = 0; r < rows4x6; r++) {
+          resolvedRows.push({
+            rowIndex: rIdx++,
+            widthCm: 4.0,
+            heightCm: 6.0,
+            columns: 5,
+            emuWidth: cmToEmu(4.0),
+            emuHeight: cmToEmu(6.0),
+            twipWidth: cmToTwips(4.0),
+            twipHeight: cmToTwips(6.0),
+          });
+        }
+      }
+
+      // Baris 3x4: 6 foto per baris
+      if (total3x4 > 0) {
+        const rows3x4 = Math.ceil(total3x4 / 6);
+        for (let r = 0; r < rows3x4; r++) {
+          resolvedRows.push({
+            rowIndex: rIdx++,
+            widthCm: 3.0,
+            heightCm: 4.0,
+            columns: 6,
+            emuWidth: cmToEmu(3.0),
+            emuHeight: cmToEmu(4.0),
+            twipWidth: cmToTwips(3.0),
+            twipHeight: cmToTwips(4.0),
+          });
+        }
+      }
+
+      // Baris 2x3: 8 foto per baris
+      if (total2x3 > 0) {
+        const rows2x3 = Math.ceil(total2x3 / 8);
+        for (let r = 0; r < rows2x3; r++) {
+          resolvedRows.push({
+            rowIndex: rIdx++,
+            widthCm: 2.0,
+            heightCm: 3.0,
+            columns: 8,
+            emuWidth: cmToEmu(2.0),
+            emuHeight: cmToEmu(3.0),
+            twipWidth: cmToTwips(2.0),
+            twipHeight: cmToTwips(3.0),
+          });
+        }
+      }
+
+      // Baris foto lainnya jika ada
+      if (totalOther > 0) {
+        const cols = Math.abs(photoWidthCm - 4.0) < 0.15 ? 5 : (Math.abs(photoWidthCm - 3.0) < 0.15 ? 6 : 6);
+        const rowsOther = Math.ceil(totalOther / cols);
+        for (let r = 0; r < rowsOther; r++) {
+          resolvedRows.push({
+            rowIndex: rIdx++,
+            widthCm: photoWidthCm,
+            heightCm: photoHeightCm,
+            columns: cols,
+            emuWidth: cmToEmu(photoWidthCm),
+            emuHeight: cmToEmu(photoHeightCm),
+            twipWidth: cmToTwips(photoWidthCm),
+            twipHeight: cmToTwips(photoHeightCm),
+          });
+        }
+      }
+
+      if (resolvedRows.length === 0) {
+        resolvedRows.push({
+          rowIndex: 0,
+          widthCm: photoWidthCm,
+          heightCm: photoHeightCm,
+          columns: 6,
+          emuWidth: cmToEmu(photoWidthCm),
+          emuHeight: cmToEmu(photoHeightCm),
+          twipWidth: cmToTwips(photoWidthCm),
+          twipHeight: cmToTwips(photoHeightCm),
+        });
+      }
+    }
+  } else if (config.sizeLayoutMode === 'per_row' && config.rowConfigs && config.rowConfigs.length > 0) {
     config.rowConfigs.forEach((rc, idx) => {
       const rW = Math.max(0.5, rc.widthCm);
       const rH = Math.max(0.5, rc.heightCm);
@@ -62,8 +272,19 @@ export function calculateLayout(
       } else if (config.columnsMode === 'custom' && config.customColumns > 0) {
         rCols = config.customColumns;
       } else {
-        const fitCols = Math.floor((printableWidthCm + gutterCm) / (rW + gutterCm));
-        rCols = Math.max(1, fitCols);
+        // Aturan spesifik revisi menu 8:
+        // Ukuran 4x6 harus muat 1 baris 5 foto
+        // Ukuran 3x4 harus muat 1 baris 6 foto
+        if (Math.abs(rW - 4.0) < 0.15) {
+          rCols = 5;
+        } else if (Math.abs(rW - 3.0) < 0.15) {
+          rCols = 6;
+        } else if (Math.abs(rW - 2.0) < 0.15) {
+          rCols = 8;
+        } else {
+          const fitCols = Math.floor((printableWidthCm + gutterCm) / (rW + gutterCm));
+          rCols = Math.max(1, fitCols);
+        }
       }
 
       resolvedRows.push({
@@ -83,8 +304,19 @@ export function calculateLayout(
     if (config.columnsMode === 'custom' && config.customColumns > 0) {
       columns = config.customColumns;
     } else {
-      const fitCols = Math.floor((printableWidthCm + gutterCm) / (photoWidthCm + gutterCm));
-      columns = Math.max(1, fitCols);
+      // Aturan spesifik revisi menu 8:
+      // Ukuran 4x6 harus muat 1 baris 5 foto
+      // Ukuran 3x4 harus muat 1 baris 6 foto
+      if (Math.abs(photoWidthCm - 4.0) < 0.15) {
+        columns = 5;
+      } else if (Math.abs(photoWidthCm - 3.0) < 0.15) {
+        columns = 6;
+      } else if (Math.abs(photoWidthCm - 2.0) < 0.15) {
+        columns = 8;
+      } else {
+        const fitCols = Math.floor((printableWidthCm + gutterCm) / (photoWidthCm + gutterCm));
+        columns = Math.max(1, fitCols);
+      }
     }
 
     const fitRows = Math.floor(
@@ -114,7 +346,20 @@ export function calculateLayout(
   );
 
   // Count total items including duplicates/copies
-  const totalPhotosWithCopies = photos.reduce((acc, p) => acc + (p.copies || 1), 0);
+  let totalPhotosWithCopies = 0;
+  if (isMultiSize) {
+    for (const p of photos) {
+      const ms = p.multiSizeCopies;
+      const countMulti = (ms?.size4x6 || 0) + (ms?.size3x4 || 0) + (ms?.size2x3 || 0);
+      if (countMulti > 0) {
+        totalPhotosWithCopies += countMulti;
+      } else {
+        totalPhotosWithCopies += Math.max(1, p.copies || 1);
+      }
+    }
+  } else {
+    totalPhotosWithCopies = photos.reduce((acc, p) => acc + (p.copies || 1), 0);
+  }
   const totalPages = Math.max(1, Math.ceil(totalPhotosWithCopies / photosPerPage));
 
   // Convert to EMU & Twips (primary/first row fallback)
@@ -167,15 +412,145 @@ export interface ImageRelationship {
 }
 
 export interface ExpandedPhotoItem {
-  photo: PhotoItem;
-  copyIndex: number;
-  label: string;
+  photo?: PhotoItem;
+  copyIndex?: number;
+  label?: string;
+  widthCm?: number;
+  heightCm?: number;
+  sizeKey?: '4x6' | '3x4' | '2x3' | 'default';
+  isPlaceholder?: boolean;
 }
 
 export function expandPhotosWithCopies(
   photos: PhotoItem[],
-  labelType: 'filename' | 'counter' | 'blank'
+  labelType: 'filename' | 'counter' | 'blank',
+  config?: GridConfig
 ): ExpandedPhotoItem[] {
+  const isMultiSize =
+    config?.sizeLayoutMode === 'multi_size_mix' ||
+    photos.some((p) => {
+      const ms = p.multiSizeCopies;
+      return (ms?.size2x3 || 0) > 0 || (ms?.size3x4 || 0) > 0 || (ms?.size4x6 || 0) > 0;
+    });
+
+  if (isMultiSize) {
+    const raw4x6: ExpandedPhotoItem[] = [];
+    const raw3x4: ExpandedPhotoItem[] = [];
+    const raw2x3: ExpandedPhotoItem[] = [];
+    const rawOther: ExpandedPhotoItem[] = [];
+
+    let counter = 1;
+
+    for (const photo of photos) {
+      const ms = photo.multiSizeCopies;
+      const count4x6 = ms?.size4x6 || 0;
+      const count3x4 = ms?.size3x4 || 0;
+      const count2x3 = ms?.size2x3 || 0;
+
+      const hasMulti = count4x6 > 0 || count3x4 > 0 || count2x3 > 0;
+
+      if (hasMulti) {
+        // 4x6
+        for (let c = 0; c < count4x6; c++) {
+          const label = labelType === 'filename'
+            ? `${photo.name.replace(/\.[^/.]+$/, '')} (4×6)`
+            : labelType === 'counter' ? `Foto ${counter} (4×6)` : '';
+          raw4x6.push({
+            photo,
+            copyIndex: c,
+            label,
+            widthCm: 4.0,
+            heightCm: 6.0,
+            sizeKey: '4x6',
+          });
+          counter++;
+        }
+        // 3x4
+        for (let c = 0; c < count3x4; c++) {
+          const label = labelType === 'filename'
+            ? `${photo.name.replace(/\.[^/.]+$/, '')} (3×4)`
+            : labelType === 'counter' ? `Foto ${counter} (3×4)` : '';
+          raw3x4.push({
+            photo,
+            copyIndex: c,
+            label,
+            widthCm: 3.0,
+            heightCm: 4.0,
+            sizeKey: '3x4',
+          });
+          counter++;
+        }
+        // 2x3
+        for (let c = 0; c < count2x3; c++) {
+          const label = labelType === 'filename'
+            ? `${photo.name.replace(/\.[^/.]+$/, '')} (2×3)`
+            : labelType === 'counter' ? `Foto ${counter} (2×3)` : '';
+          raw2x3.push({
+            photo,
+            copyIndex: c,
+            label,
+            widthCm: 2.0,
+            heightCm: 3.0,
+            sizeKey: '2x3',
+          });
+          counter++;
+        }
+      } else {
+        const count = Math.max(1, photo.copies || 1);
+        for (let c = 0; c < count; c++) {
+          const label = labelType === 'filename'
+            ? `${photo.name.replace(/\.[^/.]+$/, '')}${count > 1 ? ` #${c + 1}` : ''}`
+            : labelType === 'counter' ? `Foto ${counter}` : '';
+          rawOther.push({
+            photo,
+            copyIndex: c,
+            label,
+            widthCm: config?.targetWidthCm || 3.0,
+            heightCm: config?.targetHeightCm || 4.0,
+            sizeKey: 'default',
+          });
+          counter++;
+        }
+      }
+    }
+
+    const packingMode = config?.multiSizePackingMode || 'compact_side_by_side';
+    if (packingMode === 'compact_side_by_side') {
+      // In compact side-by-side mode, items flow continuously across rows without dummy placeholders
+      return [...raw4x6, ...raw3x4, ...raw2x3, ...rawOther];
+    }
+
+    const result: ExpandedPhotoItem[] = [];
+
+    const padGroupIntoRows = (items: ExpandedPhotoItem[], colsPerRow: number, widthCm: number, heightCm: number, sizeKey: '4x6' | '3x4' | '2x3' | 'default') => {
+      for (let i = 0; i < items.length; i += colsPerRow) {
+        const slice = items.slice(i, i + colsPerRow);
+        for (const it of slice) {
+          result.push(it);
+        }
+        const neededPadding = colsPerRow - slice.length;
+        for (let p = 0; p < neededPadding; p++) {
+          result.push({
+            isPlaceholder: true,
+            widthCm,
+            heightCm,
+            sizeKey,
+          });
+        }
+      }
+    };
+
+    if (raw4x6.length > 0) padGroupIntoRows(raw4x6, 5, 4.0, 6.0, '4x6');
+    if (raw3x4.length > 0) padGroupIntoRows(raw3x4, 6, 3.0, 4.0, '3x4');
+    if (raw2x3.length > 0) padGroupIntoRows(raw2x3, 8, 2.0, 3.0, '2x3');
+    if (rawOther.length > 0) {
+      const defaultCols = Math.abs((config?.targetWidthCm || 3.0) - 4.0) < 0.15 ? 5 : (Math.abs((config?.targetWidthCm || 3.0) - 3.0) < 0.15 ? 6 : 6);
+      padGroupIntoRows(rawOther, defaultCols, config?.targetWidthCm || 3.0, config?.targetHeightCm || 4.0, 'default');
+    }
+
+    return result;
+  }
+
   const result: ExpandedPhotoItem[] = [];
   let counter = 1;
 
@@ -193,6 +568,9 @@ export function expandPhotosWithCopies(
         photo,
         copyIndex: c,
         label,
+        widthCm: config?.targetWidthCm || 3.0,
+        heightCm: config?.targetHeightCm || 4.0,
+        sizeKey: 'default',
       });
       counter++;
     }
@@ -290,19 +668,27 @@ export function generateDocumentXml(
         const itemIndex = consumedInPage + c;
         if (itemIndex < pageItems.length) {
           const item = pageItems[itemIndex];
-          const slotKey = getPhotoSlotKey(item.photo.id, rowLayout.widthCm, rowLayout.heightCm);
-          const rId =
-            photoRIdMap.get(slotKey) ||
-            photoRIdMap.get(item.photo.id) ||
-            'rId1';
-          const docPrId = pageStartIndex + itemIndex + 100;
-          const photoName = escapeXml(item.photo.name);
-          const labelText = escapeXml(item.label);
+          const cellDef = rowLayout.cells?.[c];
+          const cellW = cellDef ? cellDef.widthCm : rowLayout.widthCm;
+          const cellH = cellDef ? cellDef.heightCm : rowLayout.heightCm;
+          const cellTwipW = cellDef ? cellDef.twipWidth : rowTwipColW;
+          const cellEmuW = cellDef ? cellDef.emuWidth : rowEmuW;
+          const cellEmuH = cellDef ? cellDef.emuHeight : rowEmuH;
 
-          rowCells += `
+          if (item && !item.isPlaceholder && item.photo) {
+            const slotKey = getPhotoSlotKey(item.photo.id, cellW, cellH);
+            const rId =
+              photoRIdMap.get(slotKey) ||
+              photoRIdMap.get(item.photo.id) ||
+              'rId1';
+            const docPrId = pageStartIndex + itemIndex + 100;
+            const photoName = escapeXml(item.photo.name);
+            const labelText = escapeXml(item.label || '');
+
+            rowCells += `
         <w:tc>
           <w:tcPr>
-            <w:tcW w:w="${rowTwipColW}" w:type="dxa"/>
+            <w:tcW w:w="${cellTwipW}" w:type="dxa"/>
             <w:tcMar>
               <w:top w:w="${twipHalfRowSpacing}" w:type="dxa"/>
               <w:left w:w="${twipHalfGutter}" w:type="dxa"/>
@@ -320,7 +706,7 @@ export function generateDocumentXml(
             <w:r>
               <w:drawing>
                 <wp:inline distT="0" distB="0" distL="0" distR="0">
-                  <wp:extent cx="${rowEmuW}" cy="${rowEmuH}"/>
+                  <wp:extent cx="${cellEmuW}" cy="${cellEmuH}"/>
                   <wp:effectExtent l="0" t="0" r="0" b="0"/>
                   <wp:docPr id="${docPrId}" name="${photoName}"/>
                   <wp:cNvGraphicFramePr>
@@ -342,7 +728,7 @@ export function generateDocumentXml(
                         <pic:spPr>
                           <a:xfrm>
                             <a:off x="0" y="0"/>
-                            <a:ext cx="${rowEmuW}" cy="${rowEmuH}"/>
+                            <a:ext cx="${cellEmuW}" cy="${cellEmuH}"/>
                           </a:xfrm>
                           <a:prstGeom prst="rect">
                             <a:avLst/>
@@ -374,6 +760,26 @@ export function generateDocumentXml(
               : ''
           }
         </w:tc>`;
+          } else {
+            // Placeholder cell
+            rowCells += `
+        <w:tc>
+          <w:tcPr>
+            <w:tcW w:w="${rowTwipColW}" w:type="dxa"/>
+            <w:tcBorders>
+              <w:top w:val="none"/>
+              <w:left w:val="none"/>
+              <w:bottom w:val="none"/>
+              <w:right w:val="none"/>
+            </w:tcBorders>
+          </w:tcPr>
+          <w:p>
+            <w:pPr>
+              <w:spacing w:before="0" w:after="0"/>
+            </w:pPr>
+          </w:p>
+        </w:tc>`;
+          }
         } else {
           // Empty cell in last row to maintain grid width
           rowCells += `
@@ -400,7 +806,9 @@ export function generateDocumentXml(
 
       let gridColsXml = '';
       for (let c = 0; c < rowCols; c++) {
-        gridColsXml += `<w:gridCol w:w="${rowTwipColW}"/>`;
+        const cellDef = rowLayout.cells?.[c];
+        const colW = cellDef ? cellDef.twipWidth : rowTwipColW;
+        gridColsXml += `<w:gridCol w:w="${colW}"/>`;
       }
 
       // Check for STNK dimensions (23x7.5cm) to center it in A4
@@ -438,10 +846,27 @@ export function generateDocumentXml(
   // Final section properties (page size, orientation, margins in Twips)
   const orientationAttr = config.orientation === 'landscape' ? 'w:orient="landscape"' : 'w:orient="portrait"';
 
+  // Pastikan margin kiri & kanan tidak memotong baris foto (misal 5 foto ukuran 4x6 = 20 cm di A4 21 cm)
+  let maxRowRequiredTwips = 0;
+  for (const r of resolvedRows) {
+    const rowTwipTotal = r.columns * r.twipWidth + Math.max(0, r.columns - 1) * twipGutter;
+    if (rowTwipTotal > maxRowRequiredTwips) {
+      maxRowRequiredTwips = rowTwipTotal;
+    }
+  }
+
+  let effTwipLeft = twipMargins.left;
+  let effTwipRight = twipMargins.right;
+  if (maxRowRequiredTwips + effTwipLeft + effTwipRight > twipPageWidth) {
+    const sisaTwips = Math.max(140, twipPageWidth - maxRowRequiredTwips);
+    effTwipLeft = Math.round(sisaTwips / 2);
+    effTwipRight = Math.round(sisaTwips / 2);
+  }
+
   const sectPrXml = `
     <w:sectPr>
       <w:pgSz w:w="${twipPageWidth}" w:h="${twipPageHeight}" ${orientationAttr}/>
-      <w:pgMar w:top="${twipMargins.top}" w:right="${twipMargins.right}" w:bottom="${twipMargins.bottom}" w:left="${twipMargins.left}" w:header="720" w:footer="720" w:gutter="0"/>
+      <w:pgMar w:top="${twipMargins.top}" w:right="${effTwipRight}" w:bottom="${twipMargins.bottom}" w:left="${effTwipLeft}" w:header="720" w:footer="720" w:gutter="0"/>
       <w:cols w:space="720"/>
       <w:docGrid w:linePitch="360"/>
     </w:sectPr>`;
@@ -583,7 +1008,7 @@ export async function generateDocxBlob(
   onProgress?.(10, 'Menghitung tata letak & rasio...');
 
   const layout = calculateLayout(photos, config);
-  const expandedPhotos = expandPhotosWithCopies(photos, config.labelType);
+  const expandedPhotos = expandPhotosWithCopies(photos, config.labelType, config);
 
   onProgress?.(25, 'Menyiapkan arsip OpenXML...');
 
@@ -609,15 +1034,20 @@ export async function generateDocxBlob(
         const itemIndex = consumedInPage + c;
         if (itemIndex < pageItems.length) {
           const item = pageItems[itemIndex];
-          const slotKey = getPhotoSlotKey(item.photo.id, rowLayout.widthCm, rowLayout.heightCm);
-          if (!seenSlotKeys.has(slotKey)) {
-            seenSlotKeys.add(slotKey);
-            neededSlots.push({
-              photo: item.photo,
-              widthCm: rowLayout.widthCm,
-              heightCm: rowLayout.heightCm,
-              slotKey,
-            });
+          if (item && !item.isPlaceholder && item.photo) {
+            const cellDef = rowLayout.cells?.[c];
+            const slotW = cellDef ? cellDef.widthCm : rowLayout.widthCm;
+            const slotH = cellDef ? cellDef.heightCm : rowLayout.heightCm;
+            const slotKey = getPhotoSlotKey(item.photo.id, slotW, slotH);
+            if (!seenSlotKeys.has(slotKey)) {
+              seenSlotKeys.add(slotKey);
+              neededSlots.push({
+                photo: item.photo,
+                widthCm: slotW,
+                heightCm: slotH,
+                slotKey,
+              });
+            }
           }
         }
       }
@@ -641,13 +1071,16 @@ export async function generateDocxBlob(
       Math.abs(widthCm - config.targetWidthCm) < 0.01 &&
       Math.abs(heightCm - config.targetHeightCm) < 0.01;
 
-    if (isDefaultSize && photo.processedBlob) {
+    const isSlotStnk = !!photo.isStnk || (Math.abs(widthCm - 23.0) < 0.2 && Math.abs(heightCm - 7.5) < 0.2) || (Math.abs(widthCm - 7.5) < 0.2 && Math.abs(heightCm - 23.0) < 0.2);
+    const effectiveMode = isSlotStnk ? 'stretch' : config.resizeMode;
+
+    if (isDefaultSize && photo.processedBlob && (!isSlotStnk || effectiveMode === 'stretch')) {
       blob = photo.processedBlob;
     } else {
       const processed = await processImageToBlob(photo.dataUrl, {
         widthCm,
         heightCm,
-        mode: config.resizeMode,
+        mode: effectiveMode,
         autoRotateMode: config.autoRotateMode,
         manualRotateAngle: photo.rotation || 0,
         dpi: config.dpi,

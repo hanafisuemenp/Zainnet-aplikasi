@@ -398,8 +398,8 @@ export const categoriesData: ToolCategory[] = [
     id: 8,
     number: 8,
     title: "Edit Foto & Ukuran KTP",
-    subtitle: "Generator kisi pas foto, Ukuran KTP, Fitur Putar Manual & susun ukuran foto otomatis ke Word (.docx)",
-    description: "Modul edit ukuran pas foto standar (2x3, 3x4, 4x6), Ukuran KTP (8.56x5.4 cm / Pas Foto KTP), fitur putar manual (0°, 90°, 180°, 270°), atau ukuran custom cm/mm dengan Smart Crop/Fit, garis bantu potong, dan penyusunan kisi otomatis ke dalam dokumen Microsoft Word (.docx) siap cetak.",
+    subtitle: "Generator kisi pas foto, Ukuran KTP, Auto Convert/Export PDF, Orientasi Kertas & Susun Hemat Kertas",
+    description: "Modul edit ukuran pas foto standar (2x3, 3x4, 4x6), Ukuran KTP & STNK, rotasi manual/otomatis, auto convert PDF (KTP/STNK) ke JPG, pilihan orientasi kertas (Potret / Lanskap), revisi khusus 3x4 muat 6 foto/baris & 4x6 muat 5 foto/baris, serta pengaturan 1 foto multi-ukuran (3x4, 4x6, 2x3) disusun otomatis ke samping agar hemat kertas, siap diekspor ke Word (.docx) atau PDF siap cetak (.pdf).",
     iconName: "Image",
     packagePriceRp: 5000,
     tools: [
@@ -407,11 +407,11 @@ export const categoriesData: ToolCategory[] = [
         id: "foto-1",
         categoryId: 8,
         number: 1,
-        title: "Edit Foto, Ukuran KTP & Generator Kisi Foto Word (.docx)",
+        title: "Edit Foto, Ukuran KTP & Generator Kisi Foto Word (.docx) & PDF",
         domain: "edit-foto.zain.net",
         url: "internal://docx-photo-grid",
-        description: "Edit ukuran pas foto (2x3, 3x4, 4x6), Ukuran KTP (8.56x5.4 cm mendatar/tegak & Pas Foto KTP), fitur rotasi manual 90° per foto atau semua foto, atur jumlah cetak per foto, ukuran per baris, garis bantu potong, dan ekspor langsung ke tabel Microsoft Word (.docx) presisi tinggi.",
-        badge: "Edit Foto & Ukuran KTP • Word .DOCX",
+        description: "Edit ukuran pas foto (2x3, 3x4, 4x6), Ukuran KTP (8.56x5.4 cm mendatar/tegak & Pas Foto KTP), rotasi manual 90°, auto-convert PDF ke JPG, pilihan orientasi Potret/Lanskap, revisi 3x4 muat 6 foto/baris & 4x6 muat 5 foto/baris, pengaturan 1 foto multi-ukuran hemat kertas ke samping, serta ekspor langsung ke Word (.docx) dan PDF siap cetak (.pdf).",
+        badge: "Edit Foto • Word & PDF",
         priceRp: 5000,
       }
     ]
@@ -442,8 +442,8 @@ export const categoriesData: ToolCategory[] = [
     id: 10,
     number: 10,
     title: "Gabung File",
-    subtitle: "Otomatis tempel & gabungkan lembar scan dokumen lampiran skripsi ke file Word (.docx)",
-    description: "Modul otomasi penempelan dan penggabungan berkas scan dokumen skripsi (Lembar Pengesahan, Lembar Persetujuan, Surat Pernyataan Keaslian, Surat Tugas, Bebas Plagiasi, Surat Izin Penelitian, Surat Telah Meneliti, Kartu Bimbingan, dsb.) secara presisi ke dalam struktur file Microsoft Word (.docx) dengan deteksi OCR pintar dan auto-rotasi gambar.",
+    subtitle: "Otomatis tempel & gabungkan lampiran foto (JPG/PNG) dan berkas PDF ke file Word (.docx)",
+    description: "Modul otomasi penempelan dan penggabungan berkas lampiran skripsi (Lembar Pengesahan, Persetujuan, Keaslian Tulisan, Surat Tugas, Bebas Plagiasi, Surat Izin Penelitian, Surat Telah Meneliti, Kartu Bimbingan, dsb.) baik berupa file foto (JPG/PNG) maupun berkas PDF (otomatis dikonversi ke JPG 300 DPI) secara presisi ke dalam struktur file Microsoft Word (.docx) dengan deteksi OCR pintar dan auto-rotasi gambar.",
     iconName: "Layers",
     packagePriceRp: 5000,
     tools: [
@@ -451,12 +451,34 @@ export const categoriesData: ToolCategory[] = [
         id: "gabung-1",
         categoryId: 10,
         number: 1,
-        title: "Gabung File Skripsi & Lampiran Scan ke Word (.docx)",
+        title: "Gabung File Skripsi & Lampiran Scan / PDF ke Word (.docx)",
         domain: "gabung-file.zain.net",
         url: "internal://gabung-file",
-        description: "Otomatis gabungkan lembar scan pengesahan, persetujuan, surat penelitian, kartu bimbingan ke dalam berkas .docx skripsi dengan OCR pintar dan pemetaan otomatis.",
-        badge: "Gabung File • Auto .DOCX",
+        description: "Otomatis gabungkan lembar scan pengesahan, persetujuan, surat tugas, surat penelitian, kartu bimbingan format JPG atau PDF (auto-convert ke JPG) ke berkas .docx skripsi.",
+        badge: "Gabung File • JPG & PDF ke .DOCX",
         priceRp: 5000,
+      }
+    ]
+  },
+  {
+    id: 11,
+    number: 11,
+    title: "Pembuatan Nota Jilid & Hardcover Otomatis",
+    subtitle: "Sistem kasir dan pencetakan nota jilid skripsi otomatis (Akses /notajilid)",
+    description: "Sistem kasir cerdas dan pencetakan nota jilid skripsi, hardcover, softcover, laminasi, serta kalkulasi otomatis biaya percetakan ZAIN.NET terintegrasi penuh di /notajilid.",
+    iconName: "Receipt",
+    packagePriceRp: 0,
+    tools: [
+      {
+        id: "nota-1",
+        categoryId: 11,
+        number: 1,
+        title: "Pembuat Nota Jilid & Hardcover",
+        domain: "karyazainnet.net",
+        url: "/notajilid",
+        description: "Aplikasi kasir & cetak nota jilid skripsi dan hardcover online dengan kalkulator harga otomatis.",
+        badge: "Nota Jilid Otomatis",
+        priceRp: 0,
       }
     ]
   }

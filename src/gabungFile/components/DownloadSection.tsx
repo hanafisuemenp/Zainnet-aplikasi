@@ -52,7 +52,7 @@ export const DownloadSection: React.FC<DownloadSectionProps> = ({
         .then(() => {
           setIsRenderingPreview(false);
         })
-        .catch((err) => {
+        .catch((err: any) => {
           console.warn('Docx preview render error:', err);
           setIsRenderingPreview(false);
         });

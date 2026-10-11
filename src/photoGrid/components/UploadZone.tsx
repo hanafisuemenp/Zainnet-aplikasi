@@ -61,12 +61,15 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
             <h2 className="text-sm font-semibold text-neutral-900">
               Modul Unggah Foto (Multi-Upload)
             </h2>
-            <div className="flex items-center gap-2 text-xs text-neutral-500">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
               <span>{photoCount} foto asli</span>
               <span aria-hidden="true">·</span>
               <span className="font-mono tabular-nums">{totalCopies} total cetak</span>
               <span aria-hidden="true">·</span>
-              <span>JPG, PNG, WEBP</span>
+              <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-semibold text-[10px]">JPG, PNG, WEBP</span>
+              <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold text-[10px] border border-emerald-200">
+                ★ PDF (KTP &amp; STNK Auto Compress ke JPG)
+              </span>
             </div>
           </div>
         </div>
@@ -120,10 +123,18 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
             <UploadCloud className="w-6 h-6" />
           </div>
           <p className="text-sm font-medium text-neutral-800">
-            Tarik &amp; lepas foto atau PDF ke sini, atau <span className="text-blue-600 underline underline-offset-2">pilih dari perangkat</span>
+            Tarik &amp; lepas foto atau berkas PDF ke sini, atau <span className="text-blue-600 underline underline-offset-2">pilih dari perangkat</span>
           </p>
-          <p className="text-xs text-neutral-500 max-w-md">
-            Mendukung pengunggahan banyak foto sekaligus (.jpg, .jpeg, .png, .webp) atau PDF (untuk STNK). Foto diproses 100% lokal di browser Anda.
+          <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-neutral-600 mt-1 max-w-lg">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700 text-[11px]">
+              📷 Pas Foto (JPG / PNG)
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-medium">
+              📄 Scan PDF KTP / STNK (Otomatis Kompres ke JPG Siap Cetak)
+            </span>
+          </div>
+          <p className="text-[11px] text-neutral-400 max-w-md mt-1">
+            Jika mengunggah file PDF (misal scan KTP atau STNK), sistem akan otomatis membaca tiap halaman dan mengompresnya langsung ke format JPG tajam. Semua proses berjalan 100% lokal di browser Anda.
           </p>
         </div>
       </div>

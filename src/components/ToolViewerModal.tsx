@@ -27,6 +27,7 @@ import { SkripsiPaginatorFixedView } from './SkripsiPaginatorFixedView';
 import { PhotoGridView } from '../photoGrid/PhotoGridView';
 import { Label103View } from '../label103/Label103View';
 import GabungFileApp from '../gabungFile/App';
+import { NotaJilidView } from './NotaJilidView';
 
 interface ToolViewerModalProps {
   tool: ToolItem | null;
@@ -645,6 +646,16 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
     }
   };
 
+  if (tool.id === 'nota-1' || tool.url === '/notajilid' || tool.url === 'https://zainnet-nota-v8.pages.dev/') {
+    return (
+      <NotaJilidView 
+        onBackToHome={() => {
+          onClose();
+        }} 
+      />
+    );
+  }
+
   return (
     <div 
       ref={containerRef}
@@ -1063,10 +1074,14 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
           <iframe
             key={iframeKey}
             id="module-embed-view"
-            src={tool.url}
+            src={
+              tool.id === 'nota-1' || tool.url === '/notajilid' || tool.url === 'https://zainnet-nota-v8.pages.dev/'
+                ? '/proxy-notajilid'
+                : tool.url
+            }
             title={tool.title}
             className="w-full h-full border-0 bg-white"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; camera; microphone"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; camera; microphone; print"
             allowFullScreen
             onLoad={() => {
               setIsLoading(false);

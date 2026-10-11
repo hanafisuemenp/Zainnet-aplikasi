@@ -24,7 +24,8 @@ import {
   Layers,
   Flame,
   Zap,
-  FileCheck
+  FileCheck,
+  Receipt
 } from 'lucide-react';
 import { UserRole, DailyTrafficStat } from '../types';
 
@@ -221,6 +222,24 @@ export const Navbar: React.FC<NavbarProps> = ({
             Jurnal
           </span>
         </button>
+
+        {/* Nota Jilid - Pembuat Nota Cetak & Kasir Otomatis */}
+        <a
+          href="/notajilid"
+          onClick={(e) => {
+            e.preventDefault();
+            window.history.pushState(null, '', '/notajilid');
+            window.dispatchEvent(new PopStateEvent('popstate'));
+          }}
+          title="Pembuat Nota Jilid & Hardcover Otomatis (Akses Publik /notajilid)"
+          className="transition-all cursor-pointer flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-bold hover:text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/40 text-emerald-300 shadow-sm"
+        >
+          <Receipt className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Nota Jilid</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/30 text-emerald-200 text-[10px]">
+            V8
+          </span>
+        </a>
 
         {isAdmin && onOpenAgcAutoPost && (
           <button
@@ -523,6 +542,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                 SINTA/Scopus
               </span>
             </button>
+            <a
+              href="/notajilid"
+              onClick={(e) => {
+                e.preventDefault();
+                setMobileMenuOpen(false);
+                window.history.pushState(null, '', '/notajilid');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
+              className="text-left py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors flex items-center justify-between text-emerald-300 font-semibold"
+            >
+              <div className="flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-emerald-400" />
+                <span>Nota Jilid & Hardcover Otomatis</span>
+              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                V8.0 Cloud
+              </span>
+            </a>
             {isAdmin && onOpenAgcAutoPost && (
               <button 
                 onClick={() => {

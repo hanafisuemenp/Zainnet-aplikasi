@@ -28,6 +28,7 @@ import { performQuickHeaderOcr } from './utils/ocrService';
 import { applyScansToDocx } from './utils/docxModifier';
 import { validateDocxBlob } from './utils/docxValidator';
 import { rotateImageFile, autoRotateKartuBimbingan } from './utils/imageUtils';
+import { isPdfFile, convertPdfToJpgPages } from './utils/pdfConverter';
 
 export interface GabungFileProps {
   onExportComplete?: (fileName: string) => void;
@@ -42,10 +43,12 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
   const [isLoadingDocx, setIsLoadingDocx] = useState(false);
   const [isLoadingSample, setIsLoadingSample] = useState(false);
   const [isOcrRunning, setIsOcrRunning] = useState(false);
+  const [isConvertingPdf, setIsConvertingPdf] = useState(false);
+  const [pdfConversionStatus, setPdfConversionStatus] = useState<string>('');
 
   // Configuration options
   const [options, setOptions] = useState<ProcessingOptions>({
-    anchorKeyword: 'Lampiran Taruh disini Mulai dari sini',
+    anchorKeyword: 'karyazainnet',
     useAnchorFor5Attachments: true,
     captionPrefix: 'none',
     kartuBimbinganLayout: 'single_page',
@@ -160,46 +163,119 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
     setCurrentStep(1);
   };
 
-  // 2. Handle Scans Upload
+  // 2. Handle Scans Upload (Mendukung upload gambar JPG/PNG dan file dokumen PDF dengan auto-convert ke JPG)
   const handleAddScanFiles = async (fileList: FileList | File[]) => {
     const newScans: ScanFile[] = [];
+    const files = Array.from(fileList);
 
-    for (let i = 0; i < fileList.length; i++) {
-      let file = fileList[i];
-      if (!file.type.startsWith('image/')) continue;
+    const pdfFiles = files.filter((f) => isPdfFile(f));
+    const imageFiles = files.filter(
+      (f) => !isPdfFile(f) && (f.type.startsWith('image/') || /\.(jpe?g|png|webp)$/i.test(f.name))
+    );
 
-      const dataUrl = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target?.result as string);
-        reader.readAsDataURL(file);
-      });
+    try {
+      // 1. Proses berkas PDF jika ada (Auto-convert dokumen PDF lampiran ke JPG)
+      if (pdfFiles.length > 0) {
+        setIsConvertingPdf(true);
+        addLog(`Mulai mengekstrak & mengonversi ${pdfFiles.length} file dokumen PDF lampiran...`, 'info');
 
-      const { width, height } = await new Promise<{ width: number; height: number }>((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve({ width: img.width, height: img.height });
-        img.onerror = () => resolve({ width: 800, height: 1100 });
-        img.src = dataUrl;
-      });
+        for (let pIdx = 0; pIdx < pdfFiles.length; pIdx++) {
+          const pdfFile = pdfFiles[pIdx];
+          setPdfConversionStatus(`Mengonversi "${pdfFile.name}" (${pIdx + 1}/${pdfFiles.length} PDF) ke JPG 300 DPI...`);
 
-      // Auto rotate Kartu Bimbingan if filename indicates kartu bimbingan and orientation is portrait
-      if (/bimbingan|kartu/i.test(file.name) && height > width * 1.05) {
-        const rotRes = await autoRotateKartuBimbingan(file);
-        file = rotRes.file;
+          try {
+            const convertedPages = await convertPdfToJpgPages(pdfFile, {
+              quality: 0.94,
+              scale: 2.4,
+              onProgress: (status) => setPdfConversionStatus(status),
+            });
+
+            addLog(
+              `PDF "${pdfFile.name}" berhasil dikonversi menjadi ${convertedPages.length} lembar JPG berkualitas tinggi.`,
+              'success'
+            );
+
+            for (const page of convertedPages) {
+              let pageFile = page.file;
+
+              // Cek apakah Kartu Bimbingan perlu auto-rotasi
+              if (/bimbingan|kartu/i.test(pageFile.name) && page.height > page.width * 1.05) {
+                const rotRes = await autoRotateKartuBimbingan(pageFile);
+                pageFile = rotRes.file;
+              }
+
+              newScans.push({
+                id: `scan_pdf_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+                file: pageFile,
+                name: pageFile.name,
+                size: pageFile.size,
+                dataUrl: page.dataUrl,
+                width: page.width,
+                height: page.height,
+                aspectRatio: page.width / page.height,
+                detectionSource: 'filename',
+                confidence: 'high',
+                rotation: 0,
+                isFromPdf: true,
+                originalPdfName: page.originalPdfName,
+                pdfPageNumber: page.pageNumber,
+              });
+            }
+          } catch (pdfErr: any) {
+            console.error(`Gagal mengonversi PDF ${pdfFile.name}:`, pdfErr);
+            addLog(`Gagal mengonversi PDF "${pdfFile.name}": ${pdfErr?.message || 'Error pembacaan PDF'}`, 'error');
+          }
+        }
       }
 
-      newScans.push({
-        id: `scan_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-        file,
-        name: file.name,
-        size: file.size,
-        dataUrl,
-        width,
-        height,
-        aspectRatio: width / height,
-        detectionSource: 'filename',
-        confidence: 'high',
-        rotation: 0,
-      });
+      // 2. Proses berkas gambar biasa (JPG, PNG, WEBP)
+      if (imageFiles.length > 0) {
+        for (const file of imageFiles) {
+          let currentFile = file;
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.readAsDataURL(currentFile);
+          });
+
+          const { width, height } = await new Promise<{ width: number; height: number }>((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve({ width: img.width, height: img.height });
+            img.onerror = () => resolve({ width: 800, height: 1100 });
+            img.src = dataUrl;
+          });
+
+          // Auto rotate Kartu Bimbingan jika terbalik/portrait
+          if (/bimbingan|kartu/i.test(currentFile.name) && height > width * 1.05) {
+            const rotRes = await autoRotateKartuBimbingan(currentFile);
+            currentFile = rotRes.file;
+          }
+
+          newScans.push({
+            id: `scan_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+            file: currentFile,
+            name: currentFile.name,
+            size: currentFile.size,
+            dataUrl,
+            width,
+            height,
+            aspectRatio: width / height,
+            detectionSource: 'filename',
+            confidence: 'high',
+            rotation: 0,
+          });
+        }
+      }
+    } finally {
+      setIsConvertingPdf(false);
+      setPdfConversionStatus('');
+    }
+
+    if (newScans.length === 0) {
+      if (files.length > 0) {
+        alert('Tidak ada file gambar atau dokumen PDF yang didukung. Harap pilih file JPG, PNG, atau PDF.');
+      }
+      return;
     }
 
     let mergedScans = [...scans, ...newScans];
@@ -647,6 +723,8 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
           onRunOcrForScan={handleRunOcrForScan}
           onAssignTarget={handleAssignTarget}
           isOcrRunning={isOcrRunning}
+          isConvertingPdf={isConvertingPdf}
+          pdfConversionStatus={pdfConversionStatus}
         />
 
         {/* Step 3: Structure Inspector with Anchor Keyword */}

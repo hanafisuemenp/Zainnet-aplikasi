@@ -4,8 +4,10 @@ import { CalculatedLayout, GridConfig, PhotoItem } from '../types';
 
 interface ExportToolbarProps {
   onExportDocx: () => void;
+  onExportPdf?: () => void;
   onOpenXmlModal: () => void;
   isGenerating: boolean;
+  isGeneratingPdf?: boolean;
   progressPercent: number;
   progressText: string;
   photos: PhotoItem[];
@@ -15,8 +17,10 @@ interface ExportToolbarProps {
 
 export const ExportToolbar: React.FC<ExportToolbarProps> = ({
   onExportDocx,
+  onExportPdf,
   onOpenXmlModal,
   isGenerating,
+  isGeneratingPdf = false,
   progressPercent,
   progressText,
   photos,
@@ -82,10 +86,32 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
             <span>Ekspor XML / Template</span>
           </button>
 
+          {onExportPdf && (
+            <button
+              type="button"
+              onClick={onExportPdf}
+              disabled={!hasPhotos || isGenerating || isGeneratingPdf}
+              className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-sm hover:shadow transition-all cursor-pointer"
+              title="Unduh dokumen PDF langsung siap cetak 1:1"
+            >
+              {isGeneratingPdf ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Membuat PDF...</span>
+                </>
+              ) : (
+                <>
+                  <FileDown className="w-4 h-4" />
+                  <span>Unduh Dokumen PDF (.pdf)</span>
+                </>
+              )}
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onExportDocx}
-            disabled={!hasPhotos || isGenerating}
+            disabled={!hasPhotos || isGenerating || isGeneratingPdf}
             className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-sm hover:shadow transition-all cursor-pointer"
           >
             {isGenerating ? (

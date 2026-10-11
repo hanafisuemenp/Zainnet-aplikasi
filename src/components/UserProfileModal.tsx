@@ -15,11 +15,11 @@ import {
   PlusCircle
 } from 'lucide-react';
 import { User } from 'firebase/auth';
-import { UserPurchase, UserQuotas, UserRole, UserLoyalty } from '../types';
+import { UserPurchase, UserQuotas, UserRole, UserLoyalty, AppUser } from '../types';
 import { Gift, Check, FolderArchive, BookOpen } from 'lucide-react';
 
 interface UserProfileModalProps {
-  user: User | null;
+  user: User | AppUser | null;
   userRole?: UserRole;
   discountPercentage?: number;
   favoritesCount?: number;
@@ -58,8 +58,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   const totalQuotaRemaining = Object.values(quotas || {}).reduce<number>((sum, q) => sum + (typeof q === 'number' ? q : 0), 0);
 
-  const creationDate = user.metadata.creationTime 
-    ? new Date(user.metadata.creationTime).toLocaleDateString('id-ID', {
+  const rawCreation = ('metadata' in user && (user as any).metadata?.creationTime)
+    ? (user as any).metadata.creationTime
+    : ('createdAt' in user && user.createdAt)
+    ? user.createdAt
+    : null;
+
+  const creationDate = rawCreation 
+    ? new Date(rawCreation).toLocaleDateString('id-ID', {
         day: 'numeric',
         month: 'long',
         year: 'numeric'

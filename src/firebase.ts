@@ -53,7 +53,7 @@ try {
     firebaseConfigJson.firestoreDatabaseId || undefined
   );
 } catch {
-  dbInstance = getFirestore(app, firebaseConfigJson.firestoreDatabaseId || undefined);
+  dbInstance = firebaseConfigJson.firestoreDatabaseId ? getFirestore(app, firebaseConfigJson.firestoreDatabaseId) : getFirestore(app);
 }
 
 export const db = dbInstance;

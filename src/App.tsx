@@ -74,6 +74,7 @@ import { TopUpModal } from './components/TopUpModal';
 import { WalletHomeBanner } from './components/WalletHomeBanner';
 import { AuthBridgeView } from './components/AuthBridgeView';
 import { NotaHardcover } from './components/NotaHardcover';
+import { NotaJilidView } from './components/NotaJilidView';
 import GabungFileApp from './gabungFile/App';
 import { MakalahPost, AgcPost } from './types';
 import { MakalahBlogView } from './components/MakalahBlogView';
@@ -120,24 +121,7 @@ import {
   FileCheck
 } from 'lucide-react';
 
-export default function App() {
-  // If navigating to /auth-bridge or ?auth_bridge=1, render the isolated Auth Bridge component
-  const searchParams = new URLSearchParams(window.location.search);
-  const isAuthBridge = window.location.pathname === '/auth-bridge' || searchParams.get('auth_bridge') === '1' || searchParams.has('auth_bridge');
-  if (isAuthBridge) {
-    return <AuthBridgeView />;
-  }
-
-  const isNotaHardcover = window.location.pathname === '/notahardcover';
-  if (isNotaHardcover) {
-    return <NotaHardcover />;
-  }
-
-  const isGabungFile = window.location.pathname === '/gabung-file' || window.location.pathname === '/gabung';
-  if (isGabungFile) {
-    return <GabungFileApp />;
-  }
-
+function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: string) => void }) {
   const [user, setUser] = useState<User | AppUser | null>(() => {
     const savedCustom = localStorage.getItem('zain_custom_auth_user');
     if (savedCustom) {
@@ -1790,6 +1774,7 @@ export default function App() {
   }, [categories, searchQuery, filterFavoritesOnly, selectedCategoryTab, favorites]);
 
   // Check if visitor is accessing the blog or a specific post
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const isBlogOrPostRoute = 
     currentView === 'blog' || 
     (typeof window !== 'undefined' && (
@@ -2043,7 +2028,7 @@ export default function App() {
       {currentView === 'template_jurnal' ? (
         <TemplateJurnalManager
           userRole={userRole}
-          userEmail={user?.email}
+          userEmail={user?.email || undefined}
           onBackToHome={() => {
             setCurrentView('tools');
             if (typeof window !== 'undefined' && window.history.pushState) {
@@ -2285,7 +2270,18 @@ export default function App() {
                 freeRewardsAvailable={userRole === 'public' ? loyalty.freeRewardsAvailable : 0}
                 isFreeTrialEligible={false}
                 userId={user?.uid}
-                onOpenTool={(tool) => setActiveTool(tool)}
+                onOpenTool={(tool) => {
+                  if (tool.url === '/notajilid' || tool.id === 'nota-1') {
+                    if (onNavigateToPath) {
+                      onNavigateToPath('/notajilid');
+                    } else {
+                      window.history.pushState(null, '', '/notajilid');
+                      window.dispatchEvent(new PopStateEvent('popstate'));
+                    }
+                    return;
+                  }
+                  setActiveTool(tool);
+                }}
                 onToggleFavorite={handleToggleFavorite}
                 onCheckoutRequest={(target) => setCheckoutTarget(target)}
                 onClaimReward={handleClaimLoyaltyReward}
@@ -2539,3 +2535,53 @@ export default function App() {
     </div>
   );
 }
+
+export default function App() {
+  const [currentPath, setCurrentPath] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return window.location.pathname.toLowerCase().replace(/\/$/, '');
+    }
+    return '';
+  });
+
+  useEffect(() => {
+    const handleLocationChange = () => {
+      setCurrentPath(window.location.pathname.toLowerCase().replace(/\/$/, ''));
+    };
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+  }, []);
+
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const isAuthBridge = currentPath === '/auth-bridge' || searchParams.get('auth_bridge') === '1' || searchParams.has('auth_bridge');
+  if (isAuthBridge) {
+    return <AuthBridgeView />;
+  }
+
+  const isNotaJilid = currentPath === '/notajilid' || currentPath === '/notahardcover' || searchParams.get('view') === 'notajilid' || searchParams.get('view') === 'notahardcover';
+  if (isNotaJilid) {
+    return (
+      <NotaJilidView 
+        onBackToHome={() => {
+          window.history.pushState(null, '', '/');
+          setCurrentPath('');
+        }} 
+      />
+    );
+  }
+
+  const isGabungFile = currentPath === '/gabung-file' || currentPath === '/gabung';
+  if (isGabungFile) {
+    return <GabungFileApp />;
+  }
+
+  return (
+    <AcademicHubMainApp 
+      onNavigateToPath={(path) => {
+        window.history.pushState(null, '', path);
+        setCurrentPath(path.toLowerCase().replace(/\/$/, ''));
+      }} 
+    />
+  );
+}
+

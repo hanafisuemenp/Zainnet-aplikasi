@@ -8,8 +8,10 @@ import { ExportToolbar } from './components/ExportToolbar';
 import { XmlModal } from './components/XmlModal';
 import { GridConfig, PhotoItem } from './types';
 import { calculateLayout, generateDocxBlob, generateDocumentXml, expandPhotosWithCopies } from './utils/openXmlGenerator';
+import { generatePdfBlob } from './utils/pdfGenerator';
 import { processImageToBlob, generateSamplePhotoFile } from './utils/imageProcessor';
-import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { convertPdfToJpgPages, detectIsStnk, detectIsKtp } from './utils/pdfToJpg';
+import { CheckCircle2, AlertCircle, FileText, Sparkles, CreditCard } from 'lucide-react';
 
 const INITIAL_CONFIG: GridConfig = {
   unit: 'cm',
@@ -18,25 +20,26 @@ const INITIAL_CONFIG: GridConfig = {
   resizeMode: 'smart_crop',
   autoRotateMode: 'keep',
   sizeLayoutMode: 'uniform',
+  multiSizePackingMode: 'compact_side_by_side',
   rowConfigs: [
-    { id: 'row_1', widthCm: 4.0, heightCm: 6.0, columnsMode: 'auto', customColumns: 3 },
-    { id: 'row_2', widthCm: 3.0, heightCm: 4.0, columnsMode: 'auto', customColumns: 4 },
-    { id: 'row_3', widthCm: 2.0, heightCm: 3.0, columnsMode: 'auto', customColumns: 6 },
+    { id: 'row_1', widthCm: 4.0, heightCm: 6.0, columnsMode: 'custom', customColumns: 5 },
+    { id: 'row_2', widthCm: 3.0, heightCm: 4.0, columnsMode: 'custom', customColumns: 6 },
+    { id: 'row_3', widthCm: 2.0, heightCm: 3.0, columnsMode: 'custom', customColumns: 8 },
   ],
   paperType: 'A4',
   customPaperWidthCm: 21.0,
   customPaperHeightCm: 29.7,
   orientation: 'portrait',
   margins: {
-    topCm: 1.5,
-    bottomCm: 1.5,
-    leftCm: 1.5,
-    rightCm: 1.5,
+    topCm: 1.0,
+    bottomCm: 1.0,
+    leftCm: 0.5,
+    rightCm: 0.5,
   },
-  gutterCm: 0.3,
-  rowSpacingCm: 0.4,
+  gutterCm: 0.08,
+  rowSpacingCm: 0.3,
   columnsMode: 'auto',
-  customColumns: 4,
+  customColumns: 6,
   showCutGuides: true,
   showLabels: false,
   labelType: 'filename',
@@ -52,6 +55,7 @@ export const PhotoGridView: React.FC<PhotoGridViewProps> = ({ onExportComplete }
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [config, setConfig] = useState<GridConfig>(INITIAL_CONFIG);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [progressPercent, setProgressPercent] = useState(0);
   const [progressText, setProgressText] = useState('');
   const [isXmlModalOpen, setIsXmlModalOpen] = useState(false);
@@ -74,10 +78,12 @@ export const PhotoGridView: React.FC<PhotoGridViewProps> = ({ onExportComplete }
       const updatedPhotos = await Promise.all(
         photos.map(async (p) => {
           try {
+            const isItemStnk = !!p.isStnk || (Math.abs(config.targetWidthCm - 23.0) < 0.2 && Math.abs(config.targetHeightCm - 7.5) < 0.2);
+            const effectiveMode = isItemStnk ? 'stretch' : config.resizeMode;
             const { dataUrl, blob } = await processImageToBlob(p.dataUrl, {
               widthCm: config.targetWidthCm,
               heightCm: config.targetHeightCm,
-              mode: config.resizeMode,
+              mode: effectiveMode,
               autoRotateMode: config.autoRotateMode,
               manualRotateAngle: p.rotation || 0,
               dpi: config.dpi,
@@ -107,17 +113,89 @@ export const PhotoGridView: React.FC<PhotoGridViewProps> = ({ onExportComplete }
     };
   }, [config.targetWidthCm, config.targetHeightCm, config.resizeMode, config.autoRotateMode, config.backgroundColor]);
 
-  // Handle uploaded files
+  // Handle uploaded files (Image files and PDF files with auto-compress to JPG)
   const handleFilesSelected = async (fileList: FileList | File[]) => {
     const files = Array.from(fileList);
-    const validImageFiles = files.filter((f) =>
-      f.type.startsWith('image/') || /\.(jpe?g|png|webp)$/i.test(f.name)
+    const pdfFiles = files.filter(
+      (f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name)
+    );
+    const validImageFiles = files.filter(
+      (f) => f.type.startsWith('image/') || /\.(jpe?g|png|webp)$/i.test(f.name)
     );
 
-    if (validImageFiles.length === 0) return;
+    if (pdfFiles.length === 0 && validImageFiles.length === 0) {
+      showToast('Format file tidak didukung. Harap unggah foto (JPG/PNG/WEBP) atau dokumen PDF.', 'info');
+      return;
+    }
 
     const newPhotos: PhotoItem[] = [];
 
+    // 1. Proses berkas PDF jika ada (Auto-compress PDF KTP / STNK ke format JPG)
+    let detectedStnkInBatch = false;
+    let detectedKtpInBatch = false;
+
+    if (pdfFiles.length > 0) {
+      showToast(`Mengonversi ${pdfFiles.length} file PDF ke format JPG berkualitas tinggi...`, 'info');
+      for (const pdfFile of pdfFiles) {
+        try {
+          const convertedPages = await convertPdfToJpgPages(pdfFile, 0.94, 2.5);
+          for (const page of convertedPages) {
+            const isStnk = !!page.isStnk || /stnk|etbpkp|tbpkp|samsat|swdkllj|pkb|pajak.*(motor|mobil)/i.test(pdfFile.name);
+            const isKtp = !isStnk && (!!page.isKtp || /ktp|nik|e-ktp/i.test(pdfFile.name));
+            if (isStnk) detectedStnkInBatch = true;
+            if (isKtp) detectedKtpInBatch = true;
+
+            // Target dimensions for initial thumbnail / render
+            const itemTargetWidth = isStnk ? 23.0 : (isKtp ? 8.56 : config.targetWidthCm);
+            const itemTargetHeight = isStnk ? 7.5 : (isKtp ? 5.4 : config.targetHeightCm);
+
+            // Process initial crop/stretch to target dimension
+            const { dataUrl: processedDataUrl, blob: processedBlob } = await processImageToBlob(
+              page.dataUrl,
+              {
+                widthCm: itemTargetWidth,
+                heightCm: itemTargetHeight,
+                mode: isStnk ? 'stretch' : config.resizeMode,
+                autoRotateMode: config.autoRotateMode,
+                dpi: config.dpi,
+                backgroundColor: config.backgroundColor,
+              }
+            );
+
+            newPhotos.push({
+              id: `pdf_jpg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              file: page.file,
+              name: page.file.name,
+              size: page.blob.size,
+              originalWidth: page.width,
+              originalHeight: page.height,
+              dataUrl: page.dataUrl,
+              copies: 1,
+              isFromPdf: true,
+              pdfOriginalName: page.originalFileName,
+              pdfPageNumber: page.pageNumber,
+              isStnk,
+              isKtp,
+              processedDataUrl,
+              processedBlob,
+            });
+          }
+
+          const fileIsStnk = /stnk|etbpkp|tbpkp|samsat|swdkllj|pkb|pajak.*(motor|mobil)/i.test(pdfFile.name) || convertedPages.some(p => p.isStnk);
+          const fileIsKtp = !fileIsStnk && (/ktp|nik|e-ktp/i.test(pdfFile.name) || convertedPages.some(p => p.isKtp));
+          if (fileIsStnk) {
+            showToast(`Dokumen STNK "${pdfFile.name}" terdeteksi! Ukuran otomatis disesuaikan ke STNK (23 × 7.5 cm).`);
+          } else if (fileIsKtp) {
+            showToast(`Dokumen KTP "${pdfFile.name}" terdeteksi! Ukuran otomatis disesuaikan ke KTP (8.56 × 5.4 cm).`);
+          }
+        } catch (pdfErr) {
+          console.error('Gagal mengonversi file PDF:', pdfErr);
+          showToast(`Gagal membaca file PDF ${pdfFile.name}: ${(pdfErr as Error).message}`, 'info');
+        }
+      }
+    }
+
+    // 2. Proses berkas gambar biasa (JPG, PNG, WEBP)
     for (const file of validImageFiles) {
       const dataUrl = await new Promise<string>((resolve) => {
         const reader = new FileReader();
@@ -132,13 +210,21 @@ export const PhotoGridView: React.FC<PhotoGridViewProps> = ({ onExportComplete }
         img.onload = resolve;
       });
 
+      const isStnk = detectIsStnk(file.name, '', img.naturalWidth, img.naturalHeight);
+      const isKtp = !isStnk && detectIsKtp(file.name, '', img.naturalWidth, img.naturalHeight);
+      if (isStnk) detectedStnkInBatch = true;
+      if (isKtp) detectedKtpInBatch = true;
+
+      const itemTargetWidth = isStnk ? 23.0 : (isKtp ? 8.56 : config.targetWidthCm);
+      const itemTargetHeight = isStnk ? 7.5 : (isKtp ? 5.4 : config.targetHeightCm);
+
       // Process initial crop/stretch
       const { dataUrl: processedDataUrl, blob: processedBlob } = await processImageToBlob(
         dataUrl,
         {
-          widthCm: config.targetWidthCm,
-          heightCm: config.targetHeightCm,
-          mode: config.resizeMode,
+          widthCm: itemTargetWidth,
+          heightCm: itemTargetHeight,
+          mode: isStnk ? 'stretch' : config.resizeMode,
           autoRotateMode: config.autoRotateMode,
           dpi: config.dpi,
           backgroundColor: config.backgroundColor,
@@ -154,13 +240,47 @@ export const PhotoGridView: React.FC<PhotoGridViewProps> = ({ onExportComplete }
         originalHeight: img.naturalHeight || 800,
         dataUrl,
         copies: 1,
+        isStnk,
+        isKtp,
         processedDataUrl,
         processedBlob,
       });
     }
 
-    setPhotos((prev) => [...prev, ...newPhotos]);
-    showToast(`${newPhotos.length} foto berhasil ditambahkan`);
+    if (newPhotos.length > 0) {
+      setPhotos((prev) => [...prev, ...newPhotos]);
+
+      // Jika ada file STNK yang terdeteksi, otomatis aktifkan pengaturan ukuran STNK (23 × 7.5 cm) pada kertas A4 Lanskap dengan Mode 2: Stretch
+      if (detectedStnkInBatch) {
+        setConfig((prev) => ({
+          ...prev,
+          paperType: 'A4',
+          orientation: 'landscape',
+          sizeLayoutMode: 'uniform',
+          targetWidthCm: 23.0,
+          targetHeightCm: 7.5,
+          resizeMode: 'stretch',
+          margins: { topCm: 1.5, bottomCm: 1.5, leftCm: 1.5, rightCm: 1.5 },
+        }));
+        showToast('🎯 Mode STNK Otomatis Aktif: Format A4 Lanskap, Ukuran 23 × 7.5 cm & Mode 2 Stretch diterapkan!');
+      } else if (detectedKtpInBatch && !detectedStnkInBatch) {
+        setConfig((prev) => ({
+          ...prev,
+          sizeLayoutMode: 'uniform',
+          targetWidthCm: 8.56,
+          targetHeightCm: 5.4,
+          margins: { topCm: 1.5, bottomCm: 1.5, leftCm: 1.5, rightCm: 1.5 },
+        }));
+        showToast('🎯 Mode KTP Otomatis Aktif: Ukuran disetel ke 8.56 × 5.4 cm');
+      } else {
+        const pdfCount = newPhotos.filter((p) => p.isFromPdf).length;
+        if (pdfCount > 0) {
+          showToast(`${newPhotos.length} item berhasil ditambahkan (${pdfCount} dari PDF auto-compress ke JPG)`);
+        } else {
+          showToast(`${newPhotos.length} foto berhasil ditambahkan`);
+        }
+      }
+    }
   };
 
   // Load sample photos for instant testing
@@ -232,6 +352,62 @@ export const PhotoGridView: React.FC<PhotoGridViewProps> = ({ onExportComplete }
         return p;
       })
     );
+  };
+
+  const handleUpdateMultiSizeCopies = (id: string, sizeKey: 'size4x6' | 'size3x4' | 'size2x3', delta: number) => {
+    setPhotos((prev) =>
+      prev.map((p) => {
+        if (p.id === id) {
+          const ms = p.multiSizeCopies || { size4x6: 0, size3x4: 0, size2x3: 0 };
+          const cur = ms[sizeKey] || 0;
+          return {
+            ...p,
+            multiSizeCopies: { ...ms, [sizeKey]: Math.max(0, cur + delta) },
+          };
+        }
+        return p;
+      })
+    );
+  };
+
+  const handleSetMultiSizeCopies = (id: string, sizeKey: 'size4x6' | 'size3x4' | 'size2x3', val: number) => {
+    setPhotos((prev) =>
+      prev.map((p) => {
+        if (p.id === id) {
+          const ms = p.multiSizeCopies || { size4x6: 0, size3x4: 0, size2x3: 0 };
+          return {
+            ...p,
+            multiSizeCopies: { ...ms, [sizeKey]: Math.max(0, val) },
+          };
+        }
+        return p;
+      })
+    );
+  };
+
+  const handleApplyPresetMultiSize = (id: string, preset: { size4x6: number; size3x4: number; size2x3: number }) => {
+    setPhotos((prev) =>
+      prev.map((p) => {
+        if (p.id === id) {
+          return {
+            ...p,
+            multiSizeCopies: { ...preset },
+          };
+        }
+        return p;
+      })
+    );
+    showToast(`Paket foto (4x6: ${preset.size4x6}, 3x4: ${preset.size3x4}, 2x3: ${preset.size2x3}) diterapkan ke foto`);
+  };
+
+  const handleApplyPresetToAll = (preset: { size4x6: number; size3x4: number; size2x3: number }) => {
+    setPhotos((prev) =>
+      prev.map((p) => ({
+        ...p,
+        multiSizeCopies: { ...preset },
+      }))
+    );
+    showToast(`Paket foto (4x6: ${preset.size4x6}, 3x4: ${preset.size3x4}, 2x3: ${preset.size2x3}) diterapkan ke SEMUA foto!`);
   };
 
   const handleDuplicatePhoto = (id: string) => {
@@ -317,12 +493,17 @@ export const PhotoGridView: React.FC<PhotoGridViewProps> = ({ onExportComplete }
   }, [photos, config]);
 
   const totalCopies = useMemo(() => {
-    return photos.reduce((acc, p) => acc + (p.copies || 1), 0);
+    return photos.reduce((acc, p) => {
+      const ms = p.multiSizeCopies;
+      const countMulti = (ms?.size4x6 || 0) + (ms?.size3x4 || 0) + (ms?.size2x3 || 0);
+      if (countMulti > 0) return acc + countMulti;
+      return acc + (p.copies || 1);
+    }, 0);
   }, [photos]);
 
   // Generate document.xml string for modal preview
   const currentDocumentXml = useMemo(() => {
-    const expanded = expandPhotosWithCopies(photos, config.labelType);
+    const expanded = expandPhotosWithCopies(photos, config.labelType, config);
     const photoRIdMap = new Map<string, string>();
     photos.forEach((p, idx) => {
       photoRIdMap.set(p.id, `rIdImg${idx + 1}`);
@@ -337,14 +518,14 @@ export const PhotoGridView: React.FC<PhotoGridViewProps> = ({ onExportComplete }
     try {
       setIsGenerating(true);
       setProgressPercent(10);
-      setProgressText('Memulai pembuatan dokumen...');
+      setProgressText('Memulai pembuatan dokumen Word...');
 
       const { docxBlob } = await generateDocxBlob(photos, config, (pct, msg) => {
         setProgressPercent(pct);
         setProgressText(msg);
       });
 
-      const fileName = `Grid_Foto_${config.targetWidthCm}x${config.targetHeightCm}cm_${config.paperType}.docx`;
+      const fileName = `Grid_Foto_${config.targetWidthCm}x${config.targetHeightCm}cm_${config.paperType}_${config.orientation}.docx`;
       const url = URL.createObjectURL(docxBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -354,15 +535,50 @@ export const PhotoGridView: React.FC<PhotoGridViewProps> = ({ onExportComplete }
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      showToast(`Dokumen ${fileName} berhasil diunduh!`);
+      showToast(`Dokumen Word ${fileName} berhasil diunduh!`);
       if (onExportComplete) {
         onExportComplete(fileName);
       }
     } catch (err) {
       console.error('Export error:', err);
-      showToast('Terjadi kesalahan saat mengekspor dokumen: ' + (err as Error).message, 'info');
+      showToast('Terjadi kesalahan saat mengekspor dokumen Word: ' + (err as Error).message, 'info');
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  // Export to .pdf action (Auto convert / export PDF)
+  const handleExportPdf = async () => {
+    if (photos.length === 0) return;
+
+    try {
+      setIsGeneratingPdf(true);
+      setProgressPercent(10);
+      setProgressText('Menyiapkan dokumen PDF siap cetak...');
+
+      const { pdfBlob, fileName } = await generatePdfBlob(photos, config, layout, (pct, msg) => {
+        setProgressPercent(pct);
+        setProgressText(msg);
+      });
+
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showToast(`Dokumen PDF "${fileName}" berhasil diunduh!`);
+      if (onExportComplete) {
+        onExportComplete(fileName);
+      }
+    } catch (err) {
+      console.error('Export PDF error:', err);
+      showToast('Terjadi kesalahan saat mengekspor PDF: ' + (err as Error).message, 'info');
+    } finally {
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -404,7 +620,136 @@ export const PhotoGridView: React.FC<PhotoGridViewProps> = ({ onExportComplete }
             onDuplicatePhoto={handleDuplicatePhoto}
             onRotatePhoto={handleRotatePhoto}
             onRotateAllPhotos={handleRotateAllPhotos}
+            onUpdateMultiSizeCopies={handleUpdateMultiSizeCopies}
+            onSetMultiSizeCopies={handleSetMultiSizeCopies}
+            onApplyPresetMultiSize={handleApplyPresetMultiSize}
+            onApplyPresetToAll={handleApplyPresetToAll}
           />
+        )}
+
+        {/* Quick Actions Bar when photos are loaded */}
+        {photos.length > 0 && (
+          <div className="bg-white rounded-xl border border-neutral-200 p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 text-xs font-semibold text-neutral-800">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                <span>Pilihan Cepat Cetak:</span>
+              </div>
+
+              {/* Quick Paper Orientation Toggle */}
+              <div className="flex items-center p-0.5 bg-neutral-100 rounded-lg text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfig((prev) => ({ ...prev, orientation: 'portrait' }));
+                    showToast('Kertas diubah ke Portrait (Tegak)');
+                  }}
+                  className={`px-2.5 py-1 rounded transition-colors cursor-pointer text-xs flex items-center gap-1 ${
+                    config.orientation === 'portrait'
+                      ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                      : 'text-neutral-500 hover:text-neutral-900'
+                  }`}
+                  title="Orientasi Kertas Tegak"
+                >
+                  📄 Potret (Tegak)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfig((prev) => ({ ...prev, orientation: 'landscape' }));
+                    showToast('Kertas diubah ke Landscape (Mendatar)');
+                  }}
+                  className={`px-2.5 py-1 rounded transition-colors cursor-pointer text-xs flex items-center gap-1 ${
+                    config.orientation === 'landscape'
+                      ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                      : 'text-neutral-500 hover:text-neutral-900'
+                  }`}
+                  title="Orientasi Kertas Mendatar"
+                >
+                  📑 Lanskap (Mendatar)
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  handleApplyPresetToAll({ size4x6: 2, size3x4: 3, size2x3: 7 });
+                  setConfig((prev) => ({
+                    ...prev,
+                    sizeLayoutMode: 'multi_size_mix',
+                    multiSizePackingMode: 'compact_side_by_side',
+                  }));
+                }}
+                className="px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Terapkan ke semua foto: 2 lembar 4x6, 3 lembar 3x4, 7 lembar 2x3 otomatis ke samping"
+              >
+                <span>⚡ Paket Hemat User (2x 4×6, 3x 3×4, 7x 2×3)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setConfig((prev) => ({
+                    ...prev,
+                    sizeLayoutMode: 'per_row',
+                    rowConfigs: [
+                      { id: 'row_1', widthCm: 4.0, heightCm: 6.0, columnsMode: 'custom', customColumns: 5 },
+                      { id: 'row_2', widthCm: 3.0, heightCm: 4.0, columnsMode: 'custom', customColumns: 6 },
+                      { id: 'row_3', widthCm: 2.0, heightCm: 3.0, columnsMode: 'custom', customColumns: 8 },
+                    ],
+                    margins: { topCm: 1.0, bottomCm: 1.0, leftCm: 0.4, rightCm: 0.4 },
+                    gutterCm: 0.05,
+                    rowSpacingCm: 0.3,
+                  }));
+                  showToast('Paket Pas Foto Aktif: 4×6 (1 baris 5 foto) & 3×4 (1 baris 6 foto)');
+                }}
+                className="px-3 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <span>⚡ Paket Foto (4×6: 5 foto &amp; 3×4: 6 foto)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setConfig((prev) => ({
+                    ...prev,
+                    sizeLayoutMode: 'uniform',
+                    targetWidthCm: 8.56,
+                    targetHeightCm: 5.4,
+                    margins: { topCm: 1.5, bottomCm: 1.5, leftCm: 1.5, rightCm: 1.5 },
+                  }));
+                  showToast('Ukuran KTP (8.56 × 5.4 cm) diterapkan');
+                }}
+                className="px-3 py-1.5 text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Ukuran KTP (8.56 × 5.4 cm)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setConfig((prev) => ({
+                    ...prev,
+                    paperType: 'A4',
+                    orientation: 'landscape',
+                    sizeLayoutMode: 'uniform',
+                    targetWidthCm: 23.0,
+                    targetHeightCm: 7.5,
+                    resizeMode: 'stretch',
+                    margins: { topCm: 1.5, bottomCm: 1.5, leftCm: 1.5, rightCm: 1.5 },
+                  }));
+                  showToast('Ukuran STNK (23 × 7.5 cm) di Kertas A4 Lanskap (Mode 2: Stretch) diterapkan');
+                }}
+                className="px-3 py-1.5 text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <FileText className="w-3.5 h-3.5 text-blue-600" />
+                <span>Ukuran STNK (23 × 7.5 cm) - A4 Lanskap (Stretch)</span>
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Main 2-Column Grid: Config Controls & Live Word Preview */}
@@ -425,6 +770,10 @@ export const PhotoGridView: React.FC<PhotoGridViewProps> = ({ onExportComplete }
               photos={photos}
               config={config}
               layout={layout}
+              onChangeOrientation={(o) => {
+                setConfig((prev) => ({ ...prev, orientation: o }));
+                showToast(`Orientasi kertas diubah ke ${o === 'portrait' ? 'Portrait (Tegak)' : 'Landscape (Mendatar)'}`);
+              }}
             />
           </div>
         </div>
@@ -432,8 +781,10 @@ export const PhotoGridView: React.FC<PhotoGridViewProps> = ({ onExportComplete }
         {/* Bottom Floating Export Toolbar */}
         <ExportToolbar
           onExportDocx={handleExportDocx}
+          onExportPdf={handleExportPdf}
           onOpenXmlModal={() => setIsXmlModalOpen(true)}
           isGenerating={isGenerating}
+          isGeneratingPdf={isGeneratingPdf}
           progressPercent={progressPercent}
           progressText={progressText}
           photos={photos}

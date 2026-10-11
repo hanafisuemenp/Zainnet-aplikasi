@@ -118,10 +118,10 @@ export function FormatArticle({
       setCustomShortTitle(meta.shortTitle);
       setCustomAffiliation(meta.affiliation);
       setCustomEmail(meta.email);
-      setHistoryReceived(meta.suggestedHistory.received);
-      setHistoryRevised(meta.suggestedHistory.revised);
-      setHistoryAccepted(meta.suggestedHistory.accepted);
-      setHistoryPublished(meta.suggestedHistory.published);
+      setHistoryReceived(meta.suggestedHistory.received || '');
+      setHistoryRevised(meta.suggestedHistory.revised || '');
+      setHistoryAccepted(meta.suggestedHistory.accepted || '');
+      setHistoryPublished(meta.suggestedHistory.published || '');
 
       // Auto-create mapping with target template if exists
       if (targetTemplate) {

@@ -43,6 +43,9 @@ export interface ScanFile {
   confidence: 'high' | 'medium' | 'low';
   ocrSnippet?: string;
   rotation?: number; // 0, 90, 180, 270
+  isFromPdf?: boolean;
+  originalPdfName?: string;
+  pdfPageNumber?: number;
 }
 
 export interface DocxElement {
@@ -97,7 +100,7 @@ export interface ValidationResult {
 }
 
 export interface ProcessingOptions {
-  anchorKeyword: string; // e.g. "Lampiran Taruh disini Mulai dari sini"
+  anchorKeyword: string; // e.g. "karyazainnet"
   useAnchorFor5Attachments: boolean;
   captionPrefix: 'lampiran' | 'none'; // "Lampiran: Surat Tugas Pembimbing" vs "Surat Tugas Pembimbing"
   kartuBimbinganLayout: 'single_page' | 'separate_pages'; // whether to put page break between depan and belakang

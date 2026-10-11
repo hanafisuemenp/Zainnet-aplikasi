@@ -16,17 +16,19 @@ interface DocumentPreviewProps {
   photos: PhotoItem[];
   config: GridConfig;
   layout: CalculatedLayout;
+  onChangeOrientation?: (orientation: 'portrait' | 'landscape') => void;
 }
 
 export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
   photos,
   config,
   layout,
+  onChangeOrientation,
 }) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [zoomLevel, setZoomLevel] = useState(1); // 1 = 100%, 0.75, 1.25
 
-  const expandedPhotos = expandPhotosWithCopies(photos, config.labelType);
+  const expandedPhotos = expandPhotosWithCopies(photos, config.labelType, config);
   const {
     columns,
     rowsPerPage,
@@ -73,7 +75,37 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
         </div>
 
         {/* Page navigation & Zoom controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Quick Paper Orientation Toggle */}
+          {onChangeOrientation && (
+            <div className="flex items-center p-0.5 bg-neutral-100 rounded-lg text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => onChangeOrientation('portrait')}
+                className={`px-2 py-1 rounded transition-colors cursor-pointer text-[11px] ${
+                  config.orientation === 'portrait'
+                    ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                    : 'text-neutral-500 hover:text-neutral-900'
+                }`}
+                title="Kertas Portrait (Tegak)"
+              >
+                📄 Tegak
+              </button>
+              <button
+                type="button"
+                onClick={() => onChangeOrientation('landscape')}
+                className={`px-2 py-1 rounded transition-colors cursor-pointer text-[11px] ${
+                  config.orientation === 'landscape'
+                    ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                    : 'text-neutral-500 hover:text-neutral-900'
+                }`}
+                title="Kertas Landscape (Mendatar)"
+              >
+                📑 Mendatar
+              </button>
+            </div>
+          )}
+
           {totalPages > 1 && (
             <div className="flex items-center gap-1 bg-neutral-100 rounded-lg p-0.5 text-xs font-medium">
               <button
@@ -190,7 +222,6 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
                 >
                   {(() => {
                     let consumedInPage = 0;
-                    const gutterPct = (config.gutterCm / layout.printableWidthCm) * 100;
 
                     return layout.resolvedRows.map((rowLayout, rIdx) => {
                       if (consumedInPage >= pageItems.length) return null;
@@ -199,7 +230,13 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
                         consumedInPage + rowLayout.columns
                       );
                       consumedInPage += rowLayout.columns;
-                      const rPhotoWidthPct = (rowLayout.widthCm / layout.printableWidthCm) * 100;
+                      const hasCells = rowLayout.cells && rowLayout.cells.length > 0;
+                      const rowTotalCellsW = hasCells
+                        ? rowLayout.cells!.reduce((sum, c) => sum + c.widthCm, 0) + Math.max(0, rowLayout.cells!.length - 1) * config.gutterCm
+                        : rowLayout.columns * rowLayout.widthCm + Math.max(0, rowLayout.columns - 1) * config.gutterCm;
+
+                      const effectiveRowPrintableW = Math.max(layout.printableWidthCm, rowTotalCellsW);
+                      const gutterPct = (config.gutterCm / effectiveRowPrintableW) * 100;
 
                       return (
                         <div
@@ -209,13 +246,18 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
                         >
                           {Array.from({ length: rowLayout.columns }).map((_, cIdx) => {
                             const item = rowSlice[cIdx];
-                            if (!item) {
+                            const cellDef = rowLayout.cells?.[cIdx];
+                            const cellW = cellDef ? cellDef.widthCm : rowLayout.widthCm;
+                            const cellH = cellDef ? cellDef.heightCm : rowLayout.heightCm;
+                            const cellWidthPct = (cellW / effectiveRowPrintableW) * 100;
+
+                            if (!item || item.isPlaceholder || !item.photo) {
                               return (
                                 <div
                                   key={cIdx}
                                   style={{
-                                    width: `${rPhotoWidthPct}%`,
-                                    aspectRatio: `${rowLayout.widthCm} / ${rowLayout.heightCm + (config.showLabels ? 0.6 : 0)}`,
+                                    width: `${cellWidthPct}%`,
+                                    aspectRatio: `${cellW} / ${cellH + (config.showLabels ? 0.6 : 0)}`,
                                   }}
                                   className="opacity-0 pointer-events-none"
                                 />
@@ -228,8 +270,8 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
                               item.photo.originalWidth > item.photo.originalHeight;
                             const isPortraitSrc =
                               item.photo.originalHeight > item.photo.originalWidth;
-                            const isPortraitSlot = rowLayout.heightCm > rowLayout.widthCm;
-                            const isLandscapeSlot = rowLayout.widthCm > rowLayout.heightCm;
+                            const isPortraitSlot = cellH > cellW;
+                            const isLandscapeSlot = cellW > cellH;
                             const shouldRotateInRow =
                               config.autoRotateMode === 'auto_rotate_to_target' &&
                               ((isLandscapeSrc && isPortraitSlot) ||
@@ -244,14 +286,14 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
                                     : 'border border-transparent'
                                 }`}
                                 style={{
-                                  width: `${rPhotoWidthPct}%`,
+                                  width: `${cellWidthPct}%`,
                                 }}
                               >
                                 {/* Photo image element */}
                                 <div
                                   className="w-full overflow-hidden relative bg-neutral-100 flex items-center justify-center"
                                   style={{
-                                    aspectRatio: `${rowLayout.widthCm} / ${rowLayout.heightCm}`,
+                                    aspectRatio: `${cellW} / ${cellH}`,
                                   }}
                                 >
                                   {config.sizeLayoutMode === 'uniform' ? (
