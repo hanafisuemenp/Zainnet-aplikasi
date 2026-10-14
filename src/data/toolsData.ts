@@ -463,9 +463,9 @@ export const categoriesData: ToolCategory[] = [
   {
     id: 11,
     number: 11,
-    title: "Pembuatan Nota Jilid & Hardcover Otomatis",
-    subtitle: "Sistem kasir dan pencetakan nota jilid skripsi otomatis (Akses /notajilid)",
-    description: "Sistem kasir cerdas dan pencetakan nota jilid skripsi, hardcover, softcover, laminasi, serta kalkulasi otomatis biaya percetakan ZAIN.NET terintegrasi penuh di /notajilid.",
+    title: "Pembuatan Nota Jilid & Sewa Toga Wisuda",
+    subtitle: "Sistem kasir nota jilid otomatis & reservasi sewa toga wisuda (Akses /notajilid & /sewatoga)",
+    description: "Sistem kasir pintar nota jilid skripsi otomatis dan sistem informasi penyewaan toga wisuda ZAIN.NET lengkap dengan formulir pemesanan, kuitansi, dan integrasi online.",
     iconName: "Receipt",
     packagePriceRp: 0,
     tools: [
@@ -474,10 +474,21 @@ export const categoriesData: ToolCategory[] = [
         categoryId: 11,
         number: 1,
         title: "Pembuat Nota Jilid & Hardcover",
-        domain: "karyazainnet.net",
+        domain: "hardcover-v9-8.zainnet-nota-v8.pages.dev",
         url: "/notajilid",
         description: "Aplikasi kasir & cetak nota jilid skripsi dan hardcover online dengan kalkulator harga otomatis.",
         badge: "Nota Jilid Otomatis",
+        priceRp: 0,
+      },
+      {
+        id: "toga-1",
+        categoryId: 11,
+        number: 2,
+        title: "Penyewaan Toga Wisuda Online",
+        domain: "sewatoga-v1-4.sewatoga.pages.dev",
+        url: "/sewatoga",
+        description: "Sistem booking dan reservasi sewa toga wisuda ZAIN.NET, cek stok ukuran toga, biaya sewa & jaminan, serta unduh invoice langsung.",
+        badge: "Sewa Toga Wisuda",
         priceRp: 0,
       }
     ]

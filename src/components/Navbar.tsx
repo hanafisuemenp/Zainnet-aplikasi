@@ -25,7 +25,8 @@ import {
   Flame,
   Zap,
   FileCheck,
-  Receipt
+  Receipt,
+  GraduationCap
 } from 'lucide-react';
 import { UserRole, DailyTrafficStat } from '../types';
 
@@ -140,7 +141,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Center: Navigation Menu Links (Desktop) */}
       <nav className="hidden md:flex items-center space-x-3 text-xs text-gray-300 font-medium">
         
-        {/* Main View Switcher: Modul Tools vs Blog Makalah */}
+        {/* Main View Switcher: Modul Tools & Template Jurnal */}
         <div className="flex items-center bg-slate-900/90 p-1 rounded-2xl border border-gray-800 mr-1 shadow-inner">
           <button 
             onClick={() => onNavigateView?.('tools')}
@@ -154,74 +155,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Modul Skripsi</span>
           </button>
 
-          <button 
-            onClick={() => onNavigateView?.('blog')}
+          {/* Template Artikel (TemplateJurnal Manager & Formatter) */}
+          <button
+            onClick={() => onNavigateView?.('template_jurnal')}
+            title="TemplateJurnal Manager & Formatter - Pengelolaan Master Template & Format Naskah Otomatis"
             className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
-              currentView === 'blog'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+              currentView === 'template_jurnal'
+                ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-600/30'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>Blog Makalah</span>
-            {makalahCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-blue-500/30 text-blue-200 text-[10px]">
-                {makalahCount}
-              </span>
-            )}
+            <FileCheck className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Template Artikel</span>
           </button>
         </div>
-
-        {isAdmin && onOpenBatchUpload && (
-          <button
-            onClick={onOpenBatchUpload}
-            title="Batch Upload Word Makalah (AI Ekstraksi Otomatis)"
-            className="hover:text-blue-300 transition-all cursor-pointer flex items-center gap-1.5 py-1.5 px-3 rounded-xl bg-blue-950/60 hover:bg-blue-900/70 border border-blue-500/40 text-xs font-bold text-blue-200 shadow-md shadow-blue-500/10"
-          >
-            <UploadCloud className="w-3.5 h-3.5 text-blue-400" />
-            <span>+ Batch Post Word</span>
-          </button>
-        )}
-
-        {/* Blog Agc Menu (Replaced Semua Modul, placed right beside + Batch Post Word) */}
-        <button 
-          onClick={() => onNavigateView?.('agc_blog')}
-          title="Blog AGC - Berita Viral & Trending Otomatis Setiap Hari"
-          className={`transition-all cursor-pointer flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-bold ${
-            currentView === 'agc_blog'
-              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-md shadow-orange-500/20'
-              : 'hover:text-amber-300 bg-amber-950/40 hover:bg-amber-900/50 border border-amber-500/40 text-amber-300 shadow-sm'
-          }`}
-        >
-          <Flame className="w-3.5 h-3.5 fill-current text-amber-400" />
-          <span>Blog Agc</span>
-          {agcPostsCount && agcPostsCount > 0 ? (
-            <span className="px-1.5 py-0.2 rounded-full bg-amber-500/30 text-amber-200 text-[10px] font-mono">
-              {agcPostsCount}
-            </span>
-          ) : (
-            <span className="px-1.5 py-0.2 rounded-full bg-amber-500/30 text-amber-200 text-[10px] font-mono">
-              Viral
-            </span>
-          )}
-        </button>
-
-        {/* Template Artikel (TemplateJurnal Manager & Formatter) - right beside Blog AGC */}
-        <button
-          onClick={() => onNavigateView?.('template_jurnal')}
-          title="TemplateJurnal Manager & Formatter - Pengelolaan Master Template & Format Naskah Otomatis"
-          className={`transition-all cursor-pointer flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-bold ${
-            currentView === 'template_jurnal'
-              ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-600/30'
-              : 'hover:text-indigo-300 bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-500/40 text-indigo-300 shadow-sm'
-          }`}
-        >
-          <FileCheck className="w-3.5 h-3.5 text-indigo-400" />
-          <span>Template Artikel</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-indigo-500/30 text-indigo-200 text-[10px]">
-            Jurnal
-          </span>
-        </button>
 
         {/* Nota Jilid - Pembuat Nota Cetak & Kasir Otomatis */}
         <a
@@ -241,16 +188,42 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         </a>
 
-        {isAdmin && onOpenAgcAutoPost && (
-          <button
-            onClick={onOpenAgcAutoPost}
-            title="Auto Post Berita Viral Hari Ini ke Blog AGC"
-            className="hover:text-amber-300 transition-all cursor-pointer flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-amber-950/50 hover:bg-amber-900/60 border border-amber-500/30 text-xs font-semibold text-amber-200 shadow-sm"
-          >
-            <Zap className="w-3.5 h-3.5 text-amber-400 fill-current" />
-            <span className="hidden lg:inline">Auto Post AGC</span>
-          </button>
-        )}
+        {/* Sewa Toga - Reservasi & Booking Toga Wisuda Online */}
+        <a
+          href="/sewatoga"
+          onClick={(e) => {
+            e.preventDefault();
+            window.history.pushState(null, '', '/sewatoga');
+            window.dispatchEvent(new PopStateEvent('popstate'));
+          }}
+          title="Penyewaan Toga Wisuda ZAIN.NET (Akses Publik /sewatoga)"
+          className="transition-all cursor-pointer flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-bold hover:text-purple-300 bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/40 text-purple-300 shadow-sm"
+        >
+          <GraduationCap className="w-3.5 h-3.5 text-purple-400" />
+          <span>Sewa Toga</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-purple-500/30 text-purple-200 text-[10px]">
+            Wisuda
+          </span>
+        </a>
+
+        {/* Blog & Portal Artikel Hub (Direct sleek link to Blog Makalah / AGC) */}
+        <button
+          onClick={() => onNavigateView?.('blog')}
+          title="Buka Portal Blog Makalah & Publikasi"
+          className={`hover:text-blue-300 transition-colors cursor-pointer flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl ${
+            currentView === 'blog' || currentView === 'agc_blog'
+              ? 'text-blue-300 bg-blue-950/40 border border-blue-500/30'
+              : 'text-gray-300'
+          }`}
+        >
+          <BookOpen className="w-3.5 h-3.5 text-blue-400" />
+          <span>Blog & Artikel</span>
+          {makalahCount > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full bg-blue-500/30 text-blue-200 text-[10px]">
+              {makalahCount}
+            </span>
+          )}
+        </button>
 
         <button 
           onClick={() => {
@@ -489,43 +462,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </div>
 
-          {isAdmin && onOpenBatchUpload && (
-            <button
-              onClick={() => {
-                onOpenBatchUpload();
-                setMobileMenuOpen(false);
-              }}
-              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-blue-600/30"
-            >
-              <UploadCloud className="w-4 h-4" />
-              <span>+ Batch Post Word (AI)</span>
-            </button>
-          )}
-
           <nav className="flex flex-col space-y-2 text-sm text-gray-300">
             <button 
               onClick={() => {
+                onNavigateView?.('tools');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 setMobileMenuOpen(false);
               }}
-              className="text-left py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors"
+              className="text-left py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-2"
             >
-              Beranda
-            </button>
-            <button 
-              onClick={() => {
-                onNavigateView?.('agc_blog');
-                setMobileMenuOpen(false);
-              }}
-              className="text-left py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors flex items-center justify-between text-amber-300 font-semibold"
-            >
-              <div className="flex items-center gap-2">
-                <Flame className="w-4 h-4 text-amber-400 fill-current" />
-                <span>Blog Agc (Berita Viral)</span>
-              </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                Otomatis
-              </span>
+              <Layers className="w-4 h-4 text-indigo-400" />
+              <span>Modul Skripsi</span>
             </button>
             <button 
               onClick={() => {
@@ -557,21 +504,42 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>Nota Jilid & Hardcover Otomatis</span>
               </div>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                V8.0 Cloud
+                V8
               </span>
             </a>
-            {isAdmin && onOpenAgcAutoPost && (
-              <button 
-                onClick={() => {
-                  onOpenAgcAutoPost();
-                  setMobileMenuOpen(false);
-                }}
-                className="text-left py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-2 text-amber-300"
-              >
-                <Zap className="w-4 h-4 text-amber-400 fill-current" />
-                <span>Auto Post AGC Viral</span>
-              </button>
-            )}
+            <a
+              href="/sewatoga"
+              onClick={(e) => {
+                e.preventDefault();
+                setMobileMenuOpen(false);
+                window.history.pushState(null, '', '/sewatoga');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
+              className="text-left py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors flex items-center justify-between text-purple-300 font-semibold"
+            >
+              <div className="flex items-center gap-2">
+                <GraduationCap className="w-4 h-4 text-purple-400" />
+                <span>Penyewaan Toga Wisuda Online</span>
+              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                Wisuda
+              </span>
+            </a>
+            <button 
+              onClick={() => {
+                onNavigateView?.('blog');
+                setMobileMenuOpen(false);
+              }}
+              className="text-left py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors flex items-center justify-between text-blue-300 font-semibold"
+            >
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-blue-400" />
+                <span>Portal Blog & Artikel (Makalah & AGC)</span>
+              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                Hub
+              </span>
+            </button>
             <button 
               onClick={() => {
                 const el = document.getElementById('panduan-pembayaran');

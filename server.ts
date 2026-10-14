@@ -104,11 +104,11 @@ try {
   console.warn('R2 config load warning:', e);
 }
 
-// Proxy endpoint for /proxy-notajilid to stream https://zainnet-nota-v8.pages.dev/ without X-Frame-Options: DENY blocking
+// Proxy endpoint for /proxy-notajilid to stream https://hardcover-v9-8.zainnet-nota-v8.pages.dev/ without X-Frame-Options: DENY blocking
 app.all(['/proxy-notajilid', '/proxy-notajilid/*'], async (req, res) => {
   try {
     const rawSubPath = req.originalUrl.replace(/^\/proxy-notajilid/, '') || '/';
-    const targetUrl = new URL(rawSubPath, 'https://zainnet-nota-v8.pages.dev').toString();
+    const targetUrl = new URL(rawSubPath, 'https://hardcover-v9-8.zainnet-nota-v8.pages.dev').toString();
 
     const forwardHeaders: Record<string, string> = {
       'User-Agent': (req.headers['user-agent'] as string) || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
@@ -155,6 +155,59 @@ app.all(['/proxy-notajilid', '/proxy-notajilid/*'], async (req, res) => {
   } catch (err: any) {
     console.error('Error proxying notajilid:', err);
     return res.status(502).send('Error proxying Nota Jilid: ' + err.message);
+  }
+});
+
+// Proxy endpoint for /proxy-sewatoga to stream https://sewatoga-v1-4.sewatoga.pages.dev/ without X-Frame-Options or CSP blocking
+app.all(['/proxy-sewatoga', '/proxy-sewatoga/*'], async (req, res) => {
+  try {
+    const rawSubPath = req.originalUrl.replace(/^\/proxy-sewatoga/, '') || '/';
+    const targetUrl = new URL(rawSubPath, 'https://sewatoga-v1-4.sewatoga.pages.dev').toString();
+
+    const forwardHeaders: Record<string, string> = {
+      'User-Agent': (req.headers['user-agent'] as string) || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      'Accept': (req.headers['accept'] as string) || '*/*',
+    };
+
+    const fetchOptions: RequestInit = {
+      method: req.method,
+      headers: forwardHeaders,
+      redirect: 'follow',
+    };
+
+    if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
+      fetchOptions.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+      if (req.headers['content-type']) {
+        forwardHeaders['Content-Type'] = req.headers['content-type'] as string;
+      }
+    }
+
+    const response = await fetch(targetUrl, fetchOptions);
+    const contentType = response.headers.get('content-type') || 'text/html';
+
+    res.status(response.status);
+    res.setHeader('Content-Type', contentType);
+    // Explicitly allow embedding in iframe
+    res.removeHeader('x-frame-options');
+    res.removeHeader('X-Frame-Options');
+    res.removeHeader('content-security-policy');
+    res.removeHeader('Content-Security-Policy');
+
+    if (contentType.includes('text/html')) {
+      let html = await response.text();
+      // Ensure relative links/scripts resolve directly against sewatoga base domain
+      if (!html.includes('<base ')) {
+        html = html.replace('<head>', '<head><base href="https://sewatoga-v1-4.sewatoga.pages.dev/">');
+      }
+      return res.send(html);
+    } else {
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      return res.send(buffer);
+    }
+  } catch (err: any) {
+    console.error('Error proxying sewatoga:', err);
+    return res.status(502).send('Error proxying Sewa Toga: ' + err.message);
   }
 });
 

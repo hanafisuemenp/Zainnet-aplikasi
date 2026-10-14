@@ -28,6 +28,7 @@ import { PhotoGridView } from '../photoGrid/PhotoGridView';
 import { Label103View } from '../label103/Label103View';
 import GabungFileApp from '../gabungFile/App';
 import { NotaJilidView } from './NotaJilidView';
+import { SewaTogaView } from './SewaTogaView';
 
 interface ToolViewerModalProps {
   tool: ToolItem | null;
@@ -646,9 +647,33 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
     }
   };
 
-  if (tool.id === 'nota-1' || tool.url === '/notajilid' || tool.url === 'https://zainnet-nota-v8.pages.dev/') {
+  if (
+    tool.id === 'nota-1' || 
+    tool.url === '/notajilid' || 
+    tool.url === 'https://hardcover-v9-8.zainnet-nota-v8.pages.dev/' ||
+    tool.url === 'https://hardcover-v9-8.zainnet-nota-v8.pages.dev' ||
+    tool.url === 'https://updatela.zainnet-nota-v8.pages.dev/' || 
+    tool.url === 'https://zainnet-nota-v8.pages.dev/'
+  ) {
     return (
       <NotaJilidView 
+        onBackToHome={() => {
+          onClose();
+        }} 
+      />
+    );
+  }
+
+  if (
+    tool.id === 'toga-1' || 
+    tool.url === '/sewatoga' || 
+    tool.url === 'https://sewatoga-v1-4.sewatoga.pages.dev/' ||
+    tool.url === 'https://sewatoga-v1-4.sewatoga.pages.dev' ||
+    tool.url === 'https://sewatoga.pages.dev/' || 
+    tool.url === 'https://sewatoga.pages.dev'
+  ) {
+    return (
+      <SewaTogaView 
         onBackToHome={() => {
           onClose();
         }} 
@@ -1075,9 +1100,16 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
             key={iframeKey}
             id="module-embed-view"
             src={
-              tool.id === 'nota-1' || tool.url === '/notajilid' || tool.url === 'https://zainnet-nota-v8.pages.dev/'
+              tool.id === 'nota-1' || 
+              tool.url === '/notajilid' || 
+              tool.url === 'https://hardcover-v9-8.zainnet-nota-v8.pages.dev/' ||
+              tool.url === 'https://hardcover-v9-8.zainnet-nota-v8.pages.dev' ||
+              tool.url === 'https://updatela.zainnet-nota-v8.pages.dev/' || 
+              tool.url === 'https://zainnet-nota-v8.pages.dev/'
                 ? '/proxy-notajilid'
-                : tool.url
+                : (tool.id === 'toga-1' || tool.url === '/sewatoga' || tool.url === 'https://sewatoga-v1-4.sewatoga.pages.dev/' || tool.url === 'https://sewatoga.pages.dev/'
+                  ? '/proxy-sewatoga'
+                  : tool.url)
             }
             title={tool.title}
             className="w-full h-full border-0 bg-white"

@@ -75,6 +75,7 @@ import { WalletHomeBanner } from './components/WalletHomeBanner';
 import { AuthBridgeView } from './components/AuthBridgeView';
 import { NotaHardcover } from './components/NotaHardcover';
 import { NotaJilidView } from './components/NotaJilidView';
+import { SewaTogaView } from './components/SewaTogaView';
 import GabungFileApp from './gabungFile/App';
 import { MakalahPost, AgcPost } from './types';
 import { MakalahBlogView } from './components/MakalahBlogView';
@@ -2100,95 +2101,6 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
         />
       ) : (
         <main className="max-w-6xl mx-auto px-4 py-6 space-y-6 w-full flex-1">
-          {/* Quick Banner to Blog Makalah & Blog AGC */}
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-950/80 via-indigo-950/70 to-slate-900 border border-blue-500/30 flex flex-col lg:flex-row items-center justify-between gap-4 shadow-xl">
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-blue-600/20 border border-blue-500/40 text-blue-400 flex items-center justify-center shrink-0 shadow-inner">
-                <Flame className="w-5 h-5 text-amber-400 fill-current" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-sm font-bold text-white">Repositori Blog Makalah & Blog AGC Otomatis</h3>
-                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                    AGC VIRAL AKTIF
-                  </span>
-                </div>
-                <p className="text-xs text-slate-300 mt-0.5">
-                  Publikasi otomatis artikel viral & berita trending setiap hari tanpa perlu buat manual, plus repositori naskah makalah.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 w-full lg:w-auto shrink-0 flex-wrap justify-end">
-              {userRole === 'admin' && (
-                <>
-                  <button
-                    onClick={() => {
-                      setShowMakalahAdmin(true);
-                      setCurrentView('blog');
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="px-3 py-2 rounded-xl bg-amber-950/90 hover:bg-amber-900 border border-amber-500/40 text-amber-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-                    title="Buka Panel Admin Blogspot"
-                  >
-                    <SlidersHorizontal className="w-3.5 h-3.5" />
-                    <span>Panel Blogspot</span>
-                  </button>
-                  <button
-                    onClick={() => setShowBatchUploadModal(true)}
-                    className="px-3 py-2 rounded-xl bg-blue-950/90 hover:bg-blue-900 border border-blue-500/40 text-blue-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <span>+ Batch Post Word</span>
-                  </button>
-                  <button
-                    onClick={() => setShowAgcAutoPostModal(true)}
-                    className="px-3 py-2 rounded-xl bg-gradient-to-r from-amber-600/90 to-orange-600/90 hover:from-amber-500 hover:to-orange-500 text-slate-950 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-                    title="Generate & Post Berita Viral Hari Ini Otomatis"
-                  >
-                    <Zap className="w-3.5 h-3.5 text-slate-950 fill-current" />
-                    <span>⚡ Auto Post AGC</span>
-                  </button>
-                </>
-              )}
-              <button
-                onClick={() => {
-                  setCurrentView('agc_blog');
-                  if (typeof window !== 'undefined' && window.history.pushState) {
-                    window.history.pushState({}, '', '/agc');
-                  }
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs shadow-md shadow-orange-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
-              >
-                <Flame className="w-3.5 h-3.5 fill-current text-slate-950" />
-                <span>Blog AGC ({agcPosts.length})</span>
-              </button>
-              <button
-                onClick={() => {
-                  setCurrentView('template_jurnal');
-                  if (typeof window !== 'undefined' && window.history.pushState) {
-                    window.history.pushState({}, '', '/template');
-                  }
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-indigo-600/30 flex items-center gap-1.5 transition-all cursor-pointer"
-              >
-                <FileCheck className="w-3.5 h-3.5" />
-                <span>Template Artikel</span>
-              </button>
-              <button
-                onClick={() => {
-                  setShowMakalahAdmin(false);
-                  setCurrentView('blog');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs shadow-md border border-slate-700 flex items-center gap-1.5 transition-all cursor-pointer"
-              >
-                <span>Blog Makalah ({makalahPosts.length})</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
 
           {/* Hero Section */}
           <HeroSection 
@@ -2280,6 +2192,15 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
                     }
                     return;
                   }
+                  if (tool.url === '/sewatoga' || tool.id === 'toga-1') {
+                    if (onNavigateToPath) {
+                      onNavigateToPath('/sewatoga');
+                    } else {
+                      window.history.pushState(null, '', '/sewatoga');
+                      window.dispatchEvent(new PopStateEvent('popstate'));
+                    }
+                    return;
+                  }
                   setActiveTool(tool);
                 }}
                 onToggleFavorite={handleToggleFavorite}
@@ -2300,8 +2221,29 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
       </main>
       )}
 
-      {/* Footer */}
-      <Footer />
+      {/* Footer & Hub Publikasi Konten (Blog, AGC, Blogspot, Batch Post) */}
+      <Footer 
+        onNavigateView={(v) => {
+          setCurrentView(v);
+          if (typeof window !== 'undefined' && window.history.pushState) {
+            if (v === 'template_jurnal') window.history.pushState({}, '', '/template');
+            else if (v === 'agc_blog') window.history.pushState({}, '', '/agc');
+            else if (v === 'blog') window.history.pushState({}, '', '/blog');
+            else window.history.pushState({}, '', '/');
+          }
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenBatchUpload={() => setShowBatchUploadModal(true)}
+        onOpenAgcAutoPost={() => setShowAgcAutoPostModal(true)}
+        onOpenMakalahAdmin={() => {
+          setShowMakalahAdmin(true);
+          setCurrentView('blog');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        isAdmin={userRole === 'admin'}
+        makalahCount={makalahPosts.length}
+        agcPostsCount={agcPosts.length}
+      />
 
 
       {/* Floating WhatsApp Support Widget */}
@@ -2562,6 +2504,18 @@ export default function App() {
   if (isNotaJilid) {
     return (
       <NotaJilidView 
+        onBackToHome={() => {
+          window.history.pushState(null, '', '/');
+          setCurrentPath('');
+        }} 
+      />
+    );
+  }
+
+  const isSewaToga = currentPath === '/sewatoga' || searchParams.get('view') === 'sewatoga';
+  if (isSewaToga) {
+    return (
+      <SewaTogaView 
         onBackToHome={() => {
           window.history.pushState(null, '', '/');
           setCurrentPath('');
