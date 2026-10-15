@@ -104,11 +104,11 @@ try {
   console.warn('R2 config load warning:', e);
 }
 
-// Proxy endpoint for /proxy-notajilid to stream https://hardcover-v9-8.zainnet-nota-v8.pages.dev/ without X-Frame-Options: DENY blocking
+// Proxy endpoint for /proxy-notajilid to stream https://update15oktober26.zainnet-nota-v8.pages.dev/ without X-Frame-Options: DENY blocking
 app.all(['/proxy-notajilid', '/proxy-notajilid/*'], async (req, res) => {
   try {
     const rawSubPath = req.originalUrl.replace(/^\/proxy-notajilid/, '') || '/';
-    const targetUrl = new URL(rawSubPath, 'https://hardcover-v9-8.zainnet-nota-v8.pages.dev').toString();
+    const targetUrl = new URL(rawSubPath, 'https://update15oktober26.zainnet-nota-v8.pages.dev').toString();
 
     const forwardHeaders: Record<string, string> = {
       'User-Agent': (req.headers['user-agent'] as string) || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
@@ -621,6 +621,224 @@ Tugas Anda:
     });
   }
 });
+
+/**
+ * Gemini 3.1 Flash Lite Endpoints for Menu 1 Link 6 (Skripsi Jadi Artikel)
+ */
+app.post('/api/gemini/translate-abstract', async (req, res) => {
+  try {
+    const { paragraphs, keywords } = req.body;
+    if (!Array.isArray(paragraphs) || paragraphs.length === 0) {
+      return res.status(400).json({ error: 'Paragraf abstrak tidak valid.' });
+    }
+
+    const ai = getAI();
+    if (!ai) {
+      return res.status(500).json({ error: 'GEMINI_API_KEY belum dikonfigurasi di server.' });
+    }
+
+    const prompt = `Anda adalah editor dan penerjemah jurnal ilmiah bereputasi internasional (Scopus/Sinta 1).
+Tugas Anda adalah menerjemahkan Abstrak Skripsi berbahasa Indonesia berikut ke dalam Bahasa Inggris Akademik (English Abstract) yang formal, elegan, dan presisi.
+
+ATURAN WAJIB (STRICT REQUIREMENTS):
+1. Jumlah paragraf hasil terjemahan HARUS SAMA PERSIS dengan jumlah paragraf sumber. Sumber memiliki ${paragraphs.length} paragraf, maka hasil terjemahan HARUS terdiri dari ${paragraphs.length} paragraf.
+2. Gunakan kosakata akademik yang baku (misalnya: "this study examines", "the findings indicate", "the methodology employed", "implications").
+3. Jangan menambahkan heading seperti "ABSTRACT" atau nomor paragraf di dalam teks paragraf.
+4. Terjemahkan kata kunci (keywords) secara akurat, pisahkan dengan titik koma (; ).
+
+PARAGRAF SUMBER (INDONESIA):
+${paragraphs.map((p: string, idx: number) => `[Paragraf ${idx + 1}]:\n${p}`).join('\n\n')}
+
+KATA KUNCI SUMBER:
+${keywords || '-'}`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.1-flash-lite',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            paragraphs: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.STRING,
+              },
+              description: `Array of exactly ${paragraphs.length} translated paragraphs in academic English.`,
+            },
+            keywords: {
+              type: Type.STRING,
+              description: 'Translated keywords separated by semicolons',
+            },
+          },
+          required: ['paragraphs', 'keywords'],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || '{}');
+    const translatedParagraphs = Array.isArray(parsed.paragraphs) ? parsed.paragraphs : [];
+
+    if (translatedParagraphs.length === 0) {
+      throw new Error('Gemini tidak mengembalikan paragraf terjemahan yang valid.');
+    }
+
+    res.json({
+      success: true,
+      model: 'gemini-3.1-flash-lite',
+      paragraphs: translatedParagraphs,
+      body: translatedParagraphs.join('\n\n'),
+      keywords: parsed.keywords || keywords || '',
+      paragraphCount: translatedParagraphs.length,
+    });
+  } catch (error: any) {
+    console.error('Error translate-abstract:', error);
+    res.status(500).json({
+      error: error.message || 'Gagal menerjemahkan abstrak dengan Gemini 3.1 Flash Lite.',
+    });
+  }
+});
+
+app.post('/api/gemini/tidy-section', async (req, res) => {
+  try {
+    const { sectionId, sectionTitle, paragraphs, articleTitle } = req.body;
+    if (!Array.isArray(paragraphs) || paragraphs.length === 0) {
+      return res.status(400).json({ error: 'Paragraf bagian tidak boleh kosong.' });
+    }
+
+    const ai = getAI();
+    if (!ai) {
+      return res.status(500).json({ error: 'GEMINI_API_KEY belum dikonfigurasi di server.' });
+    }
+
+    const prompt = `Anda adalah editor ahli jurnal ilmiah nasional/internasional.
+Tugas Anda adalah MERAPIKAN dan MENYUSUN potongan teks yang diambil dari skripsi agar layak menjadi bagian artikel jurnal ilmiah "${sectionTitle}" untuk judul artikel: "${articleTitle || 'Artikel Ilmiah'}".
+
+ATURAN MERAPIKAN (TIDYING RULES):
+1. Ubah gaya bahasa dari skripsi menjadi gaya artikel jurnal ilmiah:
+   - Ganti sebutan seperti "penulisan skripsi ini", "peneliti dalam skripsi ini", "pada bab I/bab IV" menjadi "penelitian ini", "kajian ini", "artikel ini".
+   - Buang kalimat pengantar administratif skripsi yang tidak relevan (misal: "tujuan penulisan skripsi untuk memenuhi syarat kelulusan...", "sebagaimana diuraikan pada subbab sebelumnya").
+2. Rapikan alur dan kohesi antarparagraf agar runtut, akademis, padat, dan mengalir dengan baik tanpa melompat-lompat.
+3. JANGAN MENGHILANGKAN fakta, angka, nama tokoh, nama tempat, teori, atau temuan penelitian. Pertahankan integritas data primer/sekunder.
+4. Pertahankan jumlah paragraf yang wajar dan padat (kira-kira ${paragraphs.length} paragraf). Jangan menyatukan semua paragraf menjadi 1 dinding teks raksasa.
+5. Bersihkan sisa tanda baca ganda, spasi rusak, atau nomor-nomor sisa format skripsi.
+
+TEKS SUMBER (${sectionTitle}):
+${paragraphs.map((p: string, idx: number) => `[Paragraf ${idx + 1}]:\n${p}`).join('\n\n')}`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.1-flash-lite',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            paragraphs: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.STRING,
+              },
+              description: 'Array of polished, publication-ready academic paragraphs.',
+            },
+            summaryOfImprovements: {
+              type: Type.STRING,
+              description: 'Brief 1-sentence note of what was improved/tidied.',
+            },
+          },
+          required: ['paragraphs'],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || '{}');
+    const polishedParagraphs = Array.isArray(parsed.paragraphs) && parsed.paragraphs.length > 0
+      ? parsed.paragraphs
+      : paragraphs;
+
+    res.json({
+      success: true,
+      sectionId,
+      model: 'gemini-3.1-flash-lite',
+      paragraphs: polishedParagraphs,
+      note: parsed.summaryOfImprovements || 'Teks berhasil dirapikan dengan standar jurnal ilmiah.',
+    });
+  } catch (error: any) {
+    console.error('Error tidy-section:', error);
+    res.status(500).json({
+      error: error.message || 'Gagal merapikan bagian dengan Gemini 3.1 Flash Lite.',
+    });
+  }
+});
+
+app.post('/api/gemini/tidy-article', async (req, res) => {
+  try {
+    const { title, sections } = req.body;
+    if (!Array.isArray(sections) || sections.length === 0) {
+      return res.status(400).json({ error: 'Bagian artikel tidak valid.' });
+    }
+
+    const ai = getAI();
+    if (!ai) {
+      return res.status(500).json({ error: 'GEMINI_API_KEY belum dikonfigurasi di server.' });
+    }
+
+    const tidiedSections = [];
+    for (const sec of sections) {
+      if (sec.id === 'biblio' || !sec.paragraphs || sec.paragraphs.length === 0) {
+        tidiedSections.push(sec);
+        continue;
+      }
+
+      const prompt = `Sebagai editor jurnal ilmiah, rapikan paragraf bagian "${sec.title}" untuk artikel berjudul "${title || 'Artikel Ilmiah'}".
+Rapikan alur berpikir, buang kata-kata khas skripsi (seperti "skripsi ini", "BAB IV", dll), perbaiki tata bahasa baku (KBBI/akademik), dan pertahankan seluruh temuan ilmiah serta data penting.
+Kembalikan JSON array of paragraphs yang sudah rapi.`;
+
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.1-flash-lite',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                paragraphs: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                },
+              },
+              required: ['paragraphs'],
+            },
+          },
+        });
+
+        const parsed = JSON.parse(response.text || '{}');
+        tidiedSections.push({
+          ...sec,
+          paragraphs: parsed.paragraphs || sec.paragraphs,
+          tidiedByAI: true,
+        });
+      } catch (err) {
+        console.warn(`Fallback for section ${sec.id}:`, err);
+        tidiedSections.push(sec);
+      }
+    }
+
+    res.json({
+      success: true,
+      model: 'gemini-3.1-flash-lite',
+      sections: tidiedSections,
+    });
+  } catch (error: any) {
+    console.error('Error tidy-article:', error);
+    res.status(500).json({
+      error: error.message || 'Gagal merapikan artikel dengan Gemini 3.1 Flash Lite.',
+    });
+  }
+});
+
 
 // Format or enhance HTML from Mammoth or raw text with solid black typography for reading
 function formatMakalahHtml(htmlContent: string, rawText: string): string {

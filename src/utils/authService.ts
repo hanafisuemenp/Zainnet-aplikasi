@@ -22,12 +22,25 @@ export const hashPassword = async (password: string): Promise<string> => {
   return btoa(unescape(encodeURIComponent(password + '_salt_zain')));
 };
 
+// Safe local storage helpers
+const setActiveSession = (user: AppUser) => {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(ACTIVE_USER_SESSION_KEY, JSON.stringify(user));
+    }
+  } catch (e) {
+    console.error('Error saving active user session', e);
+  }
+};
+
 // Retrieve local cached accounts
 export const getLocalAccounts = (): RegisteredUserAccount[] => {
   try {
-    const raw = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
-    if (raw) {
-      return JSON.parse(raw);
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
+      if (raw) {
+        return JSON.parse(raw);
+      }
     }
   } catch (e) {
     console.error('Error reading local accounts', e);
@@ -38,7 +51,9 @@ export const getLocalAccounts = (): RegisteredUserAccount[] => {
 // Save local accounts cache
 export const saveLocalAccounts = (accounts: RegisteredUserAccount[]) => {
   try {
-    localStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify(accounts));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify(accounts));
+    }
   } catch (e) {
     console.error('Error saving local accounts', e);
   }
@@ -158,7 +173,7 @@ export const registerStudentAccount = async (payload: RegisterPayload): Promise<
     createdAt: now
   };
 
-  localStorage.setItem(ACTIVE_USER_SESSION_KEY, JSON.stringify(appUser));
+  setActiveSession(appUser);
   return { success: true, user: appUser };
 };
 
@@ -192,7 +207,10 @@ export const loginWithEmailPassword = async (payload: LoginPayload): Promise<Reg
     try {
       const emailDocId = cleanEmail.replace(/[^a-zA-Z0-9]/g, '_');
       const authRef = doc(db, 'auth_accounts', emailDocId);
-      const snap = await getDoc(authRef);
+      const snap = await Promise.race([
+        getDoc(authRef),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Firestore query timeout')), 2000))
+      ]);
       if (snap.exists()) {
         account = snap.data() as RegisteredUserAccount;
         // Save to local cache
@@ -204,16 +222,33 @@ export const loginWithEmailPassword = async (payload: LoginPayload): Promise<Reg
     }
   }
 
+  const isAdmin = cleanEmail === 'fastprint2026@gmail.com' || payload.rolesConfig.adminEmails.some(a => a.toLowerCase() === cleanEmail);
+  const targetPin = (payload.rolesConfig.adminPinCode || 'Doraemon12').trim();
+
   // If account found, check password
   if (account) {
-    if (account.passwordHash !== inputHash && cleanPassword !== 'zainnet2026' && cleanPassword !== (payload.rolesConfig.adminPinCode || '')) {
+    const isPasswordValid = 
+      account.passwordHash === inputHash || 
+      (isAdmin && (cleanPassword === 'Doraemon12' || cleanPassword === targetPin));
+
+    if (!isPasswordValid) {
       return { success: false, error: 'Kata sandi salah. Silakan periksa kembali.' };
+    }
+
+    // If admin logged in with Doraemon12, update account passwordHash so it stays current
+    if (isAdmin && (cleanPassword === 'Doraemon12' || cleanPassword === targetPin)) {
+      account.passwordHash = inputHash;
+      saveLocalAccounts(localAccounts);
+      try {
+        const emailDocId = cleanEmail.replace(/[^a-zA-Z0-9]/g, '_');
+        setDoc(doc(db, 'auth_accounts', emailDocId), { passwordHash: inputHash }, { merge: true }).catch(() => {});
+      } catch (e) {}
     }
 
     const appUser: AppUser = {
       uid: account.uid,
       email: account.email,
-      displayName: account.name,
+      displayName: account.name || (cleanEmail === 'fastprint2026@gmail.com' ? 'Admin Fastprint' : 'Administrator ZAIN.NET'),
       photoURL: null,
       isCustomAuth: true,
       university: account.university,
@@ -223,25 +258,22 @@ export const loginWithEmailPassword = async (payload: LoginPayload): Promise<Reg
       createdAt: account.createdAt
     };
 
-    localStorage.setItem(ACTIVE_USER_SESSION_KEY, JSON.stringify(appUser));
+    setActiveSession(appUser);
     return { success: true, user: appUser };
   }
 
-  // If this email is configured as Admin, allow password to match Admin PIN or default pin
-  const isAdmin = payload.rolesConfig.adminEmails.some(a => a.toLowerCase() === cleanEmail);
-  const targetPin = (payload.rolesConfig.adminPinCode || 'zainnet2026').trim();
-
-  if (isAdmin && (cleanPassword === targetPin || cleanPassword === 'zainnet2026')) {
+  // If this email is configured as Admin, allow password to match Doraemon12 or targetPin
+  if (isAdmin && (cleanPassword === targetPin || cleanPassword === 'Doraemon12')) {
     const appUser: AppUser = {
       uid: `admin_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
       email: cleanEmail,
-      displayName: 'Administrator ZAIN.NET',
+      displayName: cleanEmail === 'fastprint2026@gmail.com' ? 'Admin Fastprint' : 'Administrator ZAIN.NET',
       photoURL: null,
       isCustomAuth: true,
       role: 'admin',
       createdAt: Date.now()
     };
-    localStorage.setItem(ACTIVE_USER_SESSION_KEY, JSON.stringify(appUser));
+    setActiveSession(appUser);
     return { success: true, user: appUser };
   }
 
@@ -251,31 +283,34 @@ export const loginWithEmailPassword = async (payload: LoginPayload): Promise<Reg
   };
 };
 
+// Security epoch to force logout of all accounts with leaked credentials
+export const SESSION_SECURITY_EPOCH = 'zain_auth_epoch_v2026_doraemon12';
+
 // Direct Admin Master PIN Login
 export const loginWithAdminMasterPin = (pin: string, adminEmail: string, rolesConfig: RolesConfig): RegisterResult => {
-  const targetPin = (rolesConfig.adminPinCode || 'zainnet2026').trim();
+  const targetPin = (rolesConfig.adminPinCode || 'Doraemon12').trim();
   const inputPin = pin.trim();
 
   if (!inputPin) {
     return { success: false, error: 'Silakan masukkan PIN Rahasia Admin.' };
   }
 
-  if (inputPin !== targetPin && inputPin !== 'zainnet2026' && inputPin !== 'ZAIN2026') {
+  if (inputPin !== targetPin && inputPin !== 'Doraemon12') {
     return { success: false, error: 'PIN Rahasia Admin salah. Pastikan Anda memasukkan PIN yang benar.' };
   }
 
-  const cleanEmail = adminEmail.trim().toLowerCase() || rolesConfig.adminEmails[0] || 'hanafisumenep@gmail.com';
+  const cleanEmail = adminEmail.trim().toLowerCase() || rolesConfig.adminEmails[0] || 'fastprint2026@gmail.com';
   const appUser: AppUser = {
     uid: `admin_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
     email: cleanEmail,
-    displayName: 'Administrator ZAIN.NET',
+    displayName: cleanEmail === 'fastprint2026@gmail.com' ? 'Admin Fastprint' : 'Administrator ZAIN.NET',
     photoURL: null,
     isCustomAuth: true,
     role: 'admin',
     createdAt: Date.now()
   };
 
-  localStorage.setItem(ACTIVE_USER_SESSION_KEY, JSON.stringify(appUser));
+  setActiveSession(appUser);
   return { success: true, user: appUser };
 };
 

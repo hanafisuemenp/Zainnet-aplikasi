@@ -19,7 +19,7 @@ export const NotaJilidView: React.FC<NotaJilidViewProps> = ({ onBackToHome }) =>
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Target direct URL and internal proxy URL
-  const DIRECT_URL = 'https://hardcover-v9-8.zainnet-nota-v8.pages.dev/';
+  const DIRECT_URL = 'https://update15oktober26.zainnet-nota-v8.pages.dev/';
   const PROXY_URL = '/proxy-notajilid';
   const iframeSrc = embedMode === 'proxy' ? PROXY_URL : DIRECT_URL;
 

@@ -202,6 +202,7 @@ export const Footer: React.FC<FooterProps> = ({
         <div>
           <p className="text-gray-400 font-medium">© 2026 ZAIN.NET — Skripsi, Artikel Ilmiah & Makalah</p>
           <p className="text-[10px] text-gray-500 mt-0.5">Platform otomatisasi tugas akhir mahasiswa • CS WA: 0852-3117-6597</p>
+          <p className="text-[10px] text-gray-400 mt-1">Tampilan berdasarkan Charitize. Designed by <a href="https://htmlcodex.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-300">HTML Codex</a>.</p>
         </div>
         <div className="flex items-center gap-4 text-[11px] text-gray-400">
           <button

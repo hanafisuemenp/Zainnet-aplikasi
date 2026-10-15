@@ -550,7 +550,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                     required
                     value={adminPin}
                     onChange={(e) => setAdminPin(e.target.value)}
-                    placeholder="Masukkan PIN Admin (Default: zainnet2026)"
+                    placeholder="Masukkan PIN Rahasia Admin"
                     className="w-full pl-10 pr-10 py-3 bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500 transition-all font-mono"
                     autoFocus
                   />
@@ -562,9 +562,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
                     {showAdminPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  PIN Default: <strong className="text-amber-400 font-mono">zainnet2026</strong>
-                </p>
               </div>
 
               <div>
@@ -577,7 +574,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                     type="email"
                     value={adminEmail}
                     onChange={(e) => setAdminEmail(e.target.value)}
-                    placeholder="hanafisumenep@gmail.com"
+                    placeholder="fastprint2026@gmail.com"
                     className="w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500 transition-all"
                   />
                 </div>

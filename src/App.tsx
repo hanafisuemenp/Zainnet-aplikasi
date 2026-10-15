@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { 
   onAuthStateChanged, 
   logoutUser, 
@@ -53,12 +53,12 @@ import { FreeTrialHomeBanner } from './components/FreeTrialHomeBanner';
 import { LoginView } from './components/LoginView';
 import { Navbar } from './components/Navbar';
 import { CategorySection } from './components/CategorySection';
-import { ToolViewerModal } from './components/ToolViewerModal';
+const ToolViewerModal = lazy(() => import('./components/ToolViewerModal').then(m => ({ default: m.ToolViewerModal })));
 import { UserProfileModal } from './components/UserProfileModal';
 import { RoleManagementModal } from './components/RoleManagementModal';
 import { ManualQrisPaymentModal, CheckoutTarget } from './components/ManualQrisPaymentModal';
 import { ManualQrisSettingsModal } from './components/ManualQrisSettingsModal';
-import { AdminVerificationModal } from './components/AdminVerificationModal';
+const AdminVerificationModal = lazy(() => import('./components/AdminVerificationModal').then(m => ({ default: m.AdminVerificationModal })));
 import { AdminPinModal } from './components/AdminPinModal';
 import { WhatsAppSupportWidget } from './components/WhatsAppSupportWidget';
 import { LoyaltyBanner } from './components/LoyaltyBanner';
@@ -67,24 +67,28 @@ import { ModuleGrid } from './components/ModuleGrid';
 import { TrustBadges } from './components/TrustBadges';
 import { Footer } from './components/Footer';
 import { RewardCelebrationModal } from './components/RewardCelebrationModal';
-import { AdminAnalyticsModal } from './components/AdminAnalyticsModal';
+const AdminAnalyticsModal = lazy(() => import('./components/AdminAnalyticsModal').then(m => ({ default: m.AdminAnalyticsModal })));
 import { PriceManagementModal } from './components/PriceManagementModal';
 import { DocumentArchiveModal } from './components/DocumentArchiveModal';
 import { TopUpModal } from './components/TopUpModal';
 import { WalletHomeBanner } from './components/WalletHomeBanner';
 import { AuthBridgeView } from './components/AuthBridgeView';
 import { NotaHardcover } from './components/NotaHardcover';
-import { NotaJilidView } from './components/NotaJilidView';
-import { SewaTogaView } from './components/SewaTogaView';
-import GabungFileApp from './gabungFile/App';
+const NotaJilidView = lazy(() => import('./components/NotaJilidView').then(m => ({ default: m.NotaJilidView })));
+const SewaTogaView = lazy(() => import('./components/SewaTogaView').then(m => ({ default: m.SewaTogaView })));
+const GabungFileApp = lazy(() => import('./gabungFile/App'));
+const ArtikelGeminiView = lazy(() => import('./components/ArtikelGeminiView').then(m => ({ default: m.ArtikelGeminiView })));
 import { MakalahPost, AgcPost } from './types';
-import { MakalahBlogView } from './components/MakalahBlogView';
-import { AgcBlogView } from './components/AgcBlogView';
-import { TemplateJurnalManager } from './components/TemplateJurnalManager';
-import { MakalahBatchUploadModal } from './components/MakalahBatchUploadModal';
-import { AgcAutoPostModal } from './components/AgcAutoPostModal';
-import { fetchMakalahPosts, deleteMakalahPost, fetchMakalahBySlug } from './utils/makalahService';
-import { fetchAgcPosts } from './utils/agcService';
+const MakalahBlogView = lazy(() => import('./components/MakalahBlogView').then(m => ({ default: m.MakalahBlogView })));
+const AgcBlogView = lazy(() => import('./components/AgcBlogView').then(m => ({ default: m.AgcBlogView })));
+const TemplateJurnalManager = lazy(() => import('./components/TemplateJurnalManager').then(m => ({ default: m.TemplateJurnalManager })));
+const MakalahBatchUploadModal = lazy(() => import('./components/MakalahBatchUploadModal').then(m => ({ default: m.MakalahBatchUploadModal })));
+const AgcAutoPostModal = lazy(() => import('./components/AgcAutoPostModal').then(m => ({ default: m.AgcAutoPostModal })));
+const fetchMakalahPosts = () => import('./utils/makalahService').then(m => m.fetchMakalahPosts());
+const fetchMakalahBySlug = (slug: string) => import('./utils/makalahService').then(m => m.fetchMakalahBySlug(slug));
+const deleteMakalahPost = (id: string) => import('./utils/makalahService').then(m => m.deleteMakalahPost(id));
+const fetchAgcPosts = () => import('./utils/agcService').then(m => m.fetchAgcPosts());
+import { SESSION_SECURITY_EPOCH } from './utils/authService';
 import { 
   Sparkles, 
   FileText, 
@@ -123,6 +127,18 @@ import {
 } from 'lucide-react';
 
 function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: string) => void }) {
+  // Security epoch enforcement: Automatically log out all accounts that were logged in before password reset
+  if (typeof window !== 'undefined') {
+    const epoch = localStorage.getItem('zain_auth_epoch');
+    if (epoch !== SESSION_SECURITY_EPOCH) {
+      localStorage.removeItem('zain_custom_auth_user');
+      localStorage.removeItem('zain_guest_session');
+      localStorage.removeItem('zain_last_active_role');
+      localStorage.removeItem('zain_role_impersonate');
+      localStorage.setItem('zain_auth_epoch', SESSION_SECURITY_EPOCH);
+    }
+  }
+
   const [user, setUser] = useState<User | AppUser | null>(() => {
     const savedCustom = localStorage.getItem('zain_custom_auth_user');
     if (savedCustom) {
@@ -318,6 +334,16 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
   // Active tool opened in iframe modal
   const [activeTool, setActiveTool] = useState<ToolItem | null>(null);
 
+  // Blog data is needed on demand; opening those views triggers their first fetch.
+  useEffect(() => {
+    if (currentView === 'blog' && makalahPosts.length === 0) {
+      fetchMakalahPosts().then(setMakalahPosts).catch(console.warn);
+    }
+    if (currentView === 'agc_blog' && agcPosts.length === 0) {
+      fetchAgcPosts().then(setAgcPosts).catch(console.warn);
+    }
+  }, [currentView]);
+
   // Handle bridge redirect sign-in callback if redirected
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -340,6 +366,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
 
   // Realtime subscription for global transactions (for Admin verification & real-time badge count)
   useEffect(() => {
+    if (userRole !== 'admin') return;
     try {
       const trxCol = collection(db, 'transactions');
       const unsubscribeTrx = onSnapshot(trxCol, (snapshot) => {
@@ -357,7 +384,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
     } catch (e) {
       console.warn('Error establishing transactions snapshot:', e);
     }
-  }, []);
+  }, [userRole]);
 
   // Web Traffic Tracking & Live Today's Traffic Listener (Page Views & User Views per Day)
   useEffect(() => {
@@ -365,12 +392,13 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
       console.warn('Traffic visit record warning:', err);
     });
 
+    if (userRole !== 'admin') return;
     const unsubscribeTraffic = subscribeToTodayTraffic((stat) => {
       setTodayTraffic(stat);
     });
 
     return () => unsubscribeTraffic();
-  }, [user?.uid]);
+  }, [user?.uid, userRole]);
 
   // Realtime subscription for current user's wallet balance
   useEffect(() => {
@@ -428,7 +456,11 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
     // Load remote roles, prices, and QRIS config from Firestore & bootstrap defaults if fresh
     const loadRemoteConfigs = async () => {
       try {
-        const rolesSnap = await getDoc(doc(db, 'settings', 'roles_config'));
+        const [rolesSnap, pricesSnap, qrisSnap] = await Promise.all([
+          getDoc(doc(db, 'settings', 'roles_config')),
+          getDoc(doc(db, 'settings', 'prices')),
+          getDoc(doc(db, 'settings', 'qris_config'))
+        ]);
         if (rolesSnap.exists()) {
           const remoteRoles = rolesSnap.data() as RolesConfig;
           const mergedConfig: RolesConfig = {
@@ -444,7 +476,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
           await setDoc(doc(db, 'settings', 'roles_config'), defaultRolesConfig, { merge: true });
         }
 
-        const pricesSnap = await getDoc(doc(db, 'settings', 'prices'));
+
         if (pricesSnap.exists()) {
           const remotePrices = pricesSnap.data() as CustomPricesConfig;
           const mergedPrices = { 
@@ -472,7 +504,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
           await setDoc(doc(db, 'settings', 'prices'), defaultCustomPrices, { merge: true });
         }
 
-        const qrisSnap = await getDoc(doc(db, 'settings', 'qris_config'));
+
         if (qrisSnap.exists()) {
           const remoteQris = qrisSnap.data() as PaymentConfig;
           const mergedQris = { 
@@ -528,7 +560,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
       }).catch(console.warn);
     }
 
-    fetchMakalahPosts().then(posts => {
+    if (viewParam === 'blog' || targetMakalahSlug || pathname === '/blog' || pathname.startsWith('/makalah')) fetchMakalahPosts().then(posts => {
       if (posts && posts.length > 0) {
         setMakalahPosts(posts);
 
@@ -549,7 +581,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
     }).catch(console.warn);
 
     // Fetch AGC posts automatically
-    fetchAgcPosts().then(posts => {
+    if (viewParam === 'agc' || viewParam === 'agc_blog' || pathname.startsWith('/agc')) fetchAgcPosts().then(posts => {
       if (posts && posts.length > 0) {
         setAgcPosts(posts);
       }
@@ -593,6 +625,18 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       clearTimeout(authSafetyTimer);
+
+      // Invalidate existing sessions from the previous leaked credentials epoch
+      if (typeof window !== 'undefined' && localStorage.getItem('zain_auth_epoch_firebase') !== SESSION_SECURITY_EPOCH) {
+        localStorage.setItem('zain_auth_epoch_firebase', SESSION_SECURITY_EPOCH);
+        if (currentUser) {
+          await logoutUser().catch(() => {});
+          setUser(null);
+          setAuthLoading(false);
+          return;
+        }
+      }
+
       setUser(currentUser);
       setAuthLoading(false);
 
@@ -857,24 +901,23 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
   const checkFreeTrialEligibility = async () => {
     setIsCheckingTrialEligibility(true);
     try {
-      const deviceInfo = await collectDeviceFingerprint();
-
-      // Free Trial is ONLY for reseller accounts. For general/public accounts, trial is removed.
+      // Fingerprinting (WebGL, audio and IP lookup) is only needed by eligible resellers.
       if (userRole !== 'reseller') {
         setFreeTrialStatus({
           isEligible: false,
-          deviceFingerprint: deviceInfo.deviceFingerprint,
-          ipAddress: deviceInfo.ipAddress,
-          osName: deviceInfo.osName,
-          browserName: deviceInfo.browserName,
-          gpuRenderer: deviceInfo.gpuRenderer,
-          screenSpec: deviceInfo.screenSpec,
-          cpuCores: deviceInfo.cpuCores,
+          deviceFingerprint: '',
+          ipAddress: '',
+          osName: '',
+          browserName: '',
+          gpuRenderer: '',
+          screenSpec: '',
+          cpuCores: 0,
           rejectionReason: 'Fasilitas Free Trial khusus untuk akun berstatus Mitra Reseller ZAIN.NET. Untuk akun umum, silakan lakukan pembelian sewa/kuota modul.'
         });
         return;
       }
-      
+      const deviceInfo = await collectDeviceFingerprint();
+
       // 1. Check LocalStorage Hardware Marker
       const localClaimedRaw = localStorage.getItem('zain_device_trial_claimed');
       let localClaimed: DeviceTrialRecord | null = null;
@@ -1853,7 +1896,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white">
+    <div className="charitize-shell min-h-screen flex flex-col">
       
       {/* Top Navbar */}
       <Navbar
@@ -2100,7 +2143,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
           }}
         />
       ) : (
-        <main className="max-w-6xl mx-auto px-4 py-6 space-y-6 w-full flex-1">
+        <main className="charitize-main max-w-6xl mx-auto px-4 py-6 space-y-6 w-full flex-1">
 
           {/* Hero Section */}
           <HeroSection 
@@ -2166,7 +2209,8 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
         )}
 
         {/* Classic Accordion Category List Section */}
-        <section id="semua-modul" className="space-y-3.5">
+        <section id="semua-modul" className="charitize-services space-y-3.5">
+          <div className="charitize-section-heading"><span>LAYANAN ZAIN.NET</span><h2>Pilih layanan sesuai kebutuhan</h2><p>Seluruh menu 1–11 tersedia di bawah ini. Buka menu untuk melihat pilihan dan harga.</p></div>
           {filteredCategories.length > 0 ? (
             filteredCategories.map((category) => (
               <CategorySection
@@ -2197,6 +2241,15 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
                       onNavigateToPath('/sewatoga');
                     } else {
                       window.history.pushState(null, '', '/sewatoga');
+                      window.dispatchEvent(new PopStateEvent('popstate'));
+                    }
+                    return;
+                  }
+                  if (tool.id === 'art-6' || tool.url === '/artikel-gemini' || tool.url === 'internal://artikel-gemini') {
+                    if (onNavigateToPath) {
+                      onNavigateToPath('/artikel-gemini');
+                    } else {
+                      window.history.pushState(null, '', '/artikel-gemini');
                       window.dispatchEvent(new PopStateEvent('popstate'));
                     }
                     return;
@@ -2250,7 +2303,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
       <WhatsAppSupportWidget user={user} />
 
       {/* Fullscreen In-App Viewer Modal */}
-      <ToolViewerModal
+      {activeTool && <Suspense fallback={null}><ToolViewerModal
         tool={activeTool}
         quota={activeTool ? getToolQuota(activeTool) : 0}
         userRole={userRole}
@@ -2258,7 +2311,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
         userId={user?.uid}
         onClose={() => setActiveTool(null)}
         onFinishCreation={handleConsumeQuota}
-      />
+      /></Suspense>}
 
       {/* 1x Free Trial Anti-Abuse Claim & Diagnostics Modal */}
       <FreeTrialClaimModal
@@ -2326,6 +2379,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
       )}
 
       {/* Admin Analytics Dashboard Modal */}
+      {showAnalyticsModal && <Suspense fallback={null}>
       <AdminAnalyticsModal
         purchases={allPurchasesForAdmin.length > 0 ? allPurchasesForAdmin : purchases}
         categories={categories}
@@ -2334,8 +2388,10 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
         onClose={() => setShowAnalyticsModal(false)}
         onRefresh={handleRefreshAdminAnalytics}
       />
+      </Suspense>}
 
       {/* Admin Manual Transfer & QRIS Verification Modal */}
+      {showVerificationModal && <Suspense fallback={null}>
       <AdminVerificationModal
         isOpen={showVerificationModal}
         onClose={() => setShowVerificationModal(false)}
@@ -2360,6 +2416,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
         onSaveRolesConfig={handleSaveRolesConfig}
         onOpenTrafficStats={() => setShowTrafficStatsModal(true)}
       />
+      </Suspense>}
 
       {/* 30-Day Web Traffic & Visitor Analytics Modal (Khusus Admin) */}
       <TrafficStatsModal
@@ -2441,7 +2498,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
       )}
 
       {/* Makalah Batch Word Upload Modal (AI Auto-Extraction & Generation) - Admin Only */}
-      {userRole === 'admin' && (
+      {userRole === 'admin' && showBatchUploadModal && (
         <MakalahBatchUploadModal
           isOpen={showBatchUploadModal}
           userRole={userRole}
@@ -2457,6 +2514,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
       )}
 
       {/* Auto Post AGC Controller Modal */}
+      {showAgcAutoPostModal && <Suspense fallback={null}>
       <AgcAutoPostModal
         isOpen={showAgcAutoPostModal}
         onClose={() => setShowAgcAutoPostModal(false)}
@@ -2473,6 +2531,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
         }}
         totalAgcPostsCount={agcPosts.length}
       />
+      </Suspense>}
 
     </div>
   );
@@ -2527,6 +2586,21 @@ export default function App() {
   const isGabungFile = currentPath === '/gabung-file' || currentPath === '/gabung';
   if (isGabungFile) {
     return <GabungFileApp />;
+  }
+
+  const isArtikelGemini = currentPath === '/artikel-gemini' || currentPath === '/artikel6' || searchParams.get('view') === 'artikel-gemini' || searchParams.get('view') === 'artikel6';
+  if (isArtikelGemini) {
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-[#07111f] flex items-center justify-center text-sky-400 font-semibold">Memuat Skripsi Jadi Artikel • Gemini 3.1 Flash Lite...</div>}>
+        <ArtikelGeminiView
+          onBackToHome={() => {
+            window.history.pushState(null, '', '/');
+            setCurrentPath('');
+          }}
+          isStandalone={true}
+        />
+      </Suspense>
+    );
   }
 
   return (

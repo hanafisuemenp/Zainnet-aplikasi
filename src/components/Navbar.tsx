@@ -104,7 +104,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-800/60 bg-[#070b14] backdrop-blur-md px-4 lg:px-8 py-3 flex items-center justify-between shadow-lg">
+    <>
+    <div className="charitize-topbar">
+      <strong>ZAIN.NET</strong>
+      <span>Layanan akademik & percetakan</span>
+      <a href="https://wa.me/6285231176597" target="_blank" rel="noopener noreferrer">Bantuan WhatsApp: 0852 3117 6597</a>
+    </div>
+    <header className="charitize-navbar sticky top-0 z-40 px-4 lg:px-8 py-3 flex items-center justify-between">
       
       {/* Left: Brand Logo & Title */}
       <div 
@@ -647,5 +653,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       )}
 
     </header>
+    </>
   );
 };

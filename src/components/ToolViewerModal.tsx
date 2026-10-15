@@ -29,6 +29,7 @@ import { Label103View } from '../label103/Label103View';
 import GabungFileApp from '../gabungFile/App';
 import { NotaJilidView } from './NotaJilidView';
 import { SewaTogaView } from './SewaTogaView';
+import { ArtikelGeminiView } from './ArtikelGeminiView';
 
 interface ToolViewerModalProps {
   tool: ToolItem | null;
@@ -185,11 +186,13 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
       tool.id === 'foto-1' ||
       tool.id === 'label-103' ||
       tool.id === 'gabung-1' ||
+      tool.id === 'art-6' ||
       tool.url === 'internal://skripsi-paginator' ||
       tool.url === 'internal://skripsi-paginator-fixed' ||
       tool.url === 'internal://docx-photo-grid' ||
       tool.url === 'internal://label-103' ||
-      tool.url === 'internal://gabung-file';
+      tool.url === 'internal://gabung-file' ||
+      tool.url === 'internal://artikel-gemini';
     setIsLoading(!isInternalPaginator);
     hasTriggeredFinishRef.current = false;
     const startStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -623,11 +626,13 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
       tool.id === 'foto-1' ||
       tool.id === 'label-103' ||
       tool.id === 'gabung-1' ||
+      tool.id === 'art-6' ||
       tool.url === 'internal://skripsi-paginator' ||
       tool.url === 'internal://skripsi-paginator-fixed' ||
       tool.url === 'internal://docx-photo-grid' ||
       tool.url === 'internal://label-103' ||
-      tool.url === 'internal://gabung-file';
+      tool.url === 'internal://gabung-file' ||
+      tool.url === 'internal://artikel-gemini';
     setIsLoading(!isInternalPaginator);
     setIframeKey((prev) => prev + 1);
     addLog('action', 'Pengguna menyegarkan (reload) tampilan modul.');
@@ -650,6 +655,8 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
   if (
     tool.id === 'nota-1' || 
     tool.url === '/notajilid' || 
+    tool.url === 'https://update15oktober26.zainnet-nota-v8.pages.dev/' ||
+    tool.url === 'https://update15oktober26.zainnet-nota-v8.pages.dev' ||
     tool.url === 'https://hardcover-v9-8.zainnet-nota-v8.pages.dev/' ||
     tool.url === 'https://hardcover-v9-8.zainnet-nota-v8.pages.dev' ||
     tool.url === 'https://updatela.zainnet-nota-v8.pages.dev/' || 
@@ -1095,6 +1102,17 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
               }}
             />
           </div>
+        ) : tool.id === 'art-6' || tool.url === '/artikel-gemini' || tool.url === 'internal://artikel-gemini' ? (
+          <div key={iframeKey} className="w-full h-full overflow-y-auto bg-[#07111f]">
+            <ArtikelGeminiView
+              onExportComplete={(outFileName) => {
+                handleAutoFinishDownload(
+                  outFileName,
+                  'Penyusunan naskah artikel ilmiah .DOCX + Gemini 3.1 Flash Lite selesai'
+                );
+              }}
+            />
+          </div>
         ) : (
           <iframe
             key={iframeKey}
@@ -1102,6 +1120,8 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
             src={
               tool.id === 'nota-1' || 
               tool.url === '/notajilid' || 
+              tool.url === 'https://update15oktober26.zainnet-nota-v8.pages.dev/' ||
+              tool.url === 'https://update15oktober26.zainnet-nota-v8.pages.dev' ||
               tool.url === 'https://hardcover-v9-8.zainnet-nota-v8.pages.dev/' ||
               tool.url === 'https://hardcover-v9-8.zainnet-nota-v8.pages.dev' ||
               tool.url === 'https://updatela.zainnet-nota-v8.pages.dev/' || 

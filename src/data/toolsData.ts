@@ -47,6 +47,7 @@ export const defaultCustomPrices: CustomPricesConfig = {
     'art-2': 20000,
     'art-3': 20000,
     'art-4': 20000,
+    'art-5': 20000,
     'split-1': 10000,
     'split-2': 10000,
     'num-1': 5000,
@@ -117,7 +118,7 @@ export const defaultRolesConfig: RolesConfig = {
     'partner@zain.net'
   ],
   resellerDiscountPercentage: 50,
-  adminPinCode: 'zainnet2026',
+  adminPinCode: 'Doraemon12',
   updatedAt: Date.now()
 };
 
@@ -156,7 +157,7 @@ export const categoriesData: ToolCategory[] = [
     id: 1,
     number: 1,
     title: "Pembuatan Artikel Skripsi & Artikel Ilmiah",
-    subtitle: "4 link generator naskah, skripsi & jurnal publikasi (Dihitung per tiap link)",
+    subtitle: "6 link generator naskah, skripsi & jurnal publikasi (Dihitung per tiap link)",
     description: "Sistem otomasi cerdas penyusunan artikel skripsi & naskah karya ilmiah. Pembayaran dan kuota dihitung mandiri per tiap link yang dipilih (Rp 20.000 / link).",
     iconName: "FileText",
     packagePriceRp: 45000,
@@ -203,6 +204,28 @@ export const categoriesData: ToolCategory[] = [
         url: "https://buat-artikel-2.ai.studio/",
         description: "Link 4: Modul generator struktur naskah artikel ilmiah otomatis standar akreditasi SINTA.",
         badge: "Link 4 • Cerdas",
+        priceRp: 20000,
+      },
+      {
+        id: "art-5",
+        categoryId: 1,
+        number: 5,
+        title: "Generator Artikel (Link 5)",
+        domain: "hanslakomesem-commits.github.io",
+        url: "https://hanslakomesem-commits.github.io/artikel-V4.1/",
+        description: "Link 5: ZAIN.NET Scrib Article AI Lokal V1.4 — ubah skripsi DOCX menjadi artikel dengan Abstract bilingual, sinkron footnote–daftar pustaka & AI lokal.",
+        badge: "Link 5 • Scrib AI V1.4",
+        priceRp: 20000,
+      },
+      {
+        id: "art-6",
+        categoryId: 1,
+        number: 6,
+        title: "Generator Artikel (Link 6)",
+        domain: "artikel-gemini.zain.net",
+        url: "/artikel-gemini",
+        description: "Link 6: ZAIN.NET Skripsi Jadi Artikel • Gemini 3.1 Flash Lite — konversi skripsi DOCX jadi artikel ilmiah terstruktur otomatis dengan perapian AI & abstrak bilingual super cepat.",
+        badge: "Link 6 • Gemini 3.1 Flash Lite",
         priceRp: 20000,
       }
     ]
@@ -474,7 +497,7 @@ export const categoriesData: ToolCategory[] = [
         categoryId: 11,
         number: 1,
         title: "Pembuat Nota Jilid & Hardcover",
-        domain: "hardcover-v9-8.zainnet-nota-v8.pages.dev",
+        domain: "update15oktober26.zainnet-nota-v8.pages.dev",
         url: "/notajilid",
         description: "Aplikasi kasir & cetak nota jilid skripsi dan hardcover online dengan kalkulator harga otomatis.",
         badge: "Nota Jilid Otomatis",

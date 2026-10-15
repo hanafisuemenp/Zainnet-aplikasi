@@ -48,7 +48,8 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
   const [adminEmails, setAdminEmails] = useState<string[]>([...currentConfig.adminEmails]);
   const [resellerEmails, setResellerEmails] = useState<string[]>([...currentConfig.resellerEmails]);
   const [discountPercent, setDiscountPercent] = useState<number>(currentConfig.resellerDiscountPercentage || 50);
-  const [adminPin, setAdminPin] = useState<string>(currentConfig.adminPinCode || 'zainnet2026');
+  const [adminPin, setAdminPin] = useState<string>(currentConfig.adminPinCode || 'Doraemon12');
+  const [showAdminPin, setShowAdminPin] = useState<boolean>(false);
 
   // New admin email inputs
   const [newAdminInput, setNewAdminInput] = useState<string>('');
@@ -241,7 +242,7 @@ Halo ${account.name || 'Mitra'}, akun reseller Anda telah aktif:
       adminEmails: Array.from(new Set(adminEmails.map(e => e.trim().toLowerCase()))),
       resellerEmails: Array.from(new Set(resellerEmails.map(e => e.trim().toLowerCase()))),
       resellerDiscountPercentage: Math.max(1, Math.min(99, Number(discountPercent) || 50)),
-      adminPinCode: adminPin.trim() || 'zainnet2026',
+      adminPinCode: adminPin.trim() || 'Doraemon12',
       updatedAt: Date.now()
     };
     onSaveConfig(updated);
@@ -693,16 +694,26 @@ Halo ${account.name || 'Mitra'}, akun reseller Anda telah aktif:
             Jika sistem otentikasi Google atau Firebase mengalami gangguan, Anda dapat masuk dan membuka panel Admin secara instan hanya dengan memasukkan PIN rahasia ini.
           </p>
           <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={adminPin}
-              onChange={(e) => setAdminPin(e.target.value)}
-              placeholder="Atur PIN Admin (misal: zainnet2026)..."
-              className="flex-1 px-3 py-2 bg-slate-900 border border-amber-500/40 focus:border-amber-400 rounded-xl text-xs text-amber-200 font-mono tracking-wider focus:outline-none"
-            />
+            <div className="relative flex-1">
+              <input
+                type={showAdminPin ? 'text' : 'password'}
+                value={adminPin}
+                onChange={(e) => setAdminPin(e.target.value)}
+                placeholder="Atur PIN Rahasia Admin..."
+                className="w-full pl-3 pr-9 py-2 bg-slate-900 border border-amber-500/40 focus:border-amber-400 rounded-xl text-xs text-amber-200 font-mono tracking-wider focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowAdminPin(!showAdminPin)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-300 cursor-pointer"
+                title={showAdminPin ? 'Sembunyikan' : 'Tampilkan'}
+              >
+                {showAdminPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            </div>
             <button
               type="button"
-              onClick={() => setAdminPin('zainnet2026')}
+              onClick={() => setAdminPin('Doraemon12')}
               className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-[11px] font-semibold transition-colors cursor-pointer shrink-0"
             >
               Reset Default

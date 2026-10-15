@@ -445,3 +445,98 @@ button { cursor: pointer; }
   .invoice-stage { padding: 0 !important; overflow: visible !important; }
   .printable-invoice { box-shadow: none !important; margin: auto !important; }
 }
+
+/* =========================================================================
+   SKRIPSI JADI ARTIKEL • GEMINI 3.1 FLASH LITE PREVIEW STYLING
+   ========================================================================= */
+.previewPaper {
+  background: white;
+  color: #111;
+  border-radius: 12px;
+  padding: 34px 44px;
+  min-height: 520px;
+  font-family: "Times New Roman", Times, serif;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.previewPaper h3 {
+  text-align: center;
+  font-size: 13pt;
+  line-height: 1.25;
+  margin: 0 0 20px;
+  font-weight: 700;
+  color: #111;
+}
+.previewPaper .identity {
+  text-align: center;
+  font-size: 12pt;
+  margin: 2px;
+  color: #222;
+}
+.previewPaper .identity.author {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.previewPaper .identity.academic {
+  font-size: 13pt;
+  font-style: normal;
+  margin: 3px 0;
+  line-height: 1.2;
+}
+.previewPaper h4 {
+  font-size: 12pt;
+  margin: 18px 0 8px;
+  font-weight: 700;
+  color: #111;
+}
+.previewPaper h4.center {
+  text-align: center;
+}
+.previewPaper h4.left {
+  text-align: left;
+}
+.previewPaper p {
+  font-size: 12pt;
+  line-height: 1.5;
+  text-align: justify;
+  text-indent: 0.75cm;
+  margin: 0 0 6px;
+  color: #111;
+}
+.previewPaper p.sub {
+  text-indent: 0;
+  font-weight: bold;
+  margin-top: 10px;
+}
+.previewPaper p.abstractText {
+  line-height: 1.15;
+  text-indent: 1.27cm;
+  margin: 0 0 4px;
+}
+.previewPaper p.abstractKeywords {
+  line-height: 1.15;
+  text-indent: 0;
+  margin: 8px 0 16px;
+  font-weight: 700;
+}
+.previewPaper p.conclusionHead {
+  font-weight: 700;
+  text-indent: 0;
+  margin-top: 8px;
+}
+.previewPaper p.bib {
+  line-height: 1.25;
+  text-indent: -1.27cm;
+  margin-left: 1.27cm;
+  margin-bottom: 4px;
+  text-align: left;
+}
+.previewPending {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 1px dashed #aaa;
+  color: #666;
+  font-size: 11pt;
+  border-radius: 6px;
+  background: #f9f9f9;
+}
+
