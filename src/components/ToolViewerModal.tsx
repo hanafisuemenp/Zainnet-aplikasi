@@ -1113,6 +1113,20 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
               }}
             />
           </div>
+        ) : tool.id === 'cover-1' || tool.url === 'https://hanslakomesem-commits.github.io/Edit-Hard-Cover/' || tool.url === '/edit-hard-cover' || tool.url === 'internal://edit-hard-cover' ? (
+          <iframe
+            key={iframeKey}
+            id="module-embed-view-hardcover"
+            src="https://hanslakomesem-commits.github.io/Edit-Hard-Cover/"
+            title={tool.title}
+            className="w-full h-full border-0 bg-slate-900"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; camera; microphone; print"
+            allowFullScreen
+            onLoad={() => {
+              setIsLoading(false);
+              addLog('info', 'ZAIN.NET Cover V4.10 berhasil terhubung dan siap digunakan.');
+            }}
+          />
         ) : (
           <iframe
             key={iframeKey}

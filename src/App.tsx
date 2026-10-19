@@ -78,6 +78,7 @@ const NotaJilidView = lazy(() => import('./components/NotaJilidView').then(m => 
 const SewaTogaView = lazy(() => import('./components/SewaTogaView').then(m => ({ default: m.SewaTogaView })));
 const GabungFileApp = lazy(() => import('./gabungFile/App'));
 const ArtikelGeminiView = lazy(() => import('./components/ArtikelGeminiView').then(m => ({ default: m.ArtikelGeminiView })));
+const HardCoverView = lazy(() => import('./components/HardCoverView').then(m => ({ default: m.HardCoverView })));
 import { MakalahPost, AgcPost } from './types';
 const MakalahBlogView = lazy(() => import('./components/MakalahBlogView').then(m => ({ default: m.MakalahBlogView })));
 const AgcBlogView = lazy(() => import('./components/AgcBlogView').then(m => ({ default: m.AgcBlogView })));
@@ -2210,7 +2211,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
 
         {/* Classic Accordion Category List Section */}
         <section id="semua-modul" className="charitize-services space-y-3.5">
-          <div className="charitize-section-heading"><span>LAYANAN ZAIN.NET</span><h2>Pilih layanan sesuai kebutuhan</h2><p>Seluruh menu 1–11 tersedia di bawah ini. Buka menu untuk melihat pilihan dan harga.</p></div>
+          <div className="charitize-section-heading"><span>LAYANAN ZAIN.NET</span><h2>Pilih layanan sesuai kebutuhan</h2><p>Seluruh menu 1–12 tersedia di bawah ini. Buka menu untuk melihat pilihan dan harga.</p></div>
           {filteredCategories.length > 0 ? (
             filteredCategories.map((category) => (
               <CategorySection
@@ -2250,6 +2251,15 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
                       onNavigateToPath('/artikel-gemini');
                     } else {
                       window.history.pushState(null, '', '/artikel-gemini');
+                      window.dispatchEvent(new PopStateEvent('popstate'));
+                    }
+                    return;
+                  }
+                  if (tool.id === 'cover-1' || tool.url === 'https://hanslakomesem-commits.github.io/Edit-Hard-Cover/' || tool.url === '/edit-hard-cover' || tool.url === 'internal://edit-hard-cover') {
+                    if (onNavigateToPath) {
+                      onNavigateToPath('/edit-hard-cover');
+                    } else {
+                      window.history.pushState(null, '', '/edit-hard-cover');
                       window.dispatchEvent(new PopStateEvent('popstate'));
                     }
                     return;
@@ -2593,6 +2603,21 @@ export default function App() {
     return (
       <Suspense fallback={<div className="min-h-screen bg-[#07111f] flex items-center justify-center text-sky-400 font-semibold">Memuat Skripsi Jadi Artikel • Gemini 3.1 Flash Lite...</div>}>
         <ArtikelGeminiView
+          onBackToHome={() => {
+            window.history.pushState(null, '', '/');
+            setCurrentPath('');
+          }}
+          isStandalone={true}
+        />
+      </Suspense>
+    );
+  }
+
+  const isHardCover = currentPath === '/edit-hard-cover' || currentPath === '/hardcover' || currentPath === '/cover' || searchParams.get('view') === 'edit-hard-cover' || searchParams.get('view') === 'hardcover' || searchParams.get('view') === 'cover';
+  if (isHardCover) {
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-[#07111f] flex items-center justify-center text-amber-400 font-semibold">Memuat ZAIN.NET Cover V4.10...</div>}>
+        <HardCoverView
           onBackToHome={() => {
             window.history.pushState(null, '', '/');
             setCurrentPath('');

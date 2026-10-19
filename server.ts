@@ -42,6 +42,8 @@ import {
 } from './src/server/r2Service.js';
 import { AGC_DEEP_7000_ARTICLES } from './src/data/agcDeepArticlesData.js';
 import { generateProcedural7000WordArticle, expandPostTo7000Words } from './src/utils/agcDeepArticleGenerator.js';
+// @ts-ignore
+import { hardCoverRouter } from './server/hardcover/router.mjs';
 
 const nodeRequire = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
 
@@ -89,6 +91,10 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Serve all uploaded files directly from hosting storage
 app.use('/uploads', express.static(GENERAL_UPLOADS_DIR));
+
+// Menu No 12: ZAIN.NET AI Cover Skripsi V4.2 static files and API router
+app.use('/hardcover', express.static(path.join(process.cwd(), 'public', 'hardcover')));
+app.use(hardCoverRouter);
 
 // R2 Storage configuration file path for runtime persistence
 const R2_CONFIG_FILE = path.join(process.cwd(), 'r2_config.json');
@@ -623,6 +629,107 @@ Tugas Anda:
 });
 
 /**
+ * Gemini 3.1 Flash Lite OCR Endpoint for Student Attachment Documents (Menu 10 Gabung File)
+ * Accurately detects document type, header title, rotation, and skew from photos.
+ */
+app.post('/api/gemini/document-ocr', async (req, res) => {
+  try {
+    const { imageBase64, mimeType, fileName } = req.body;
+    if (!imageBase64) {
+      return res.status(400).json({ error: 'Data gambar base64 diperlukan.' });
+    }
+
+    const ai = getAI();
+    if (!ai) {
+      return res.status(503).json({ 
+        error: 'GEMINI_API_KEY belum dikonfigurasi.',
+        fallback: true 
+      });
+    }
+
+    const cleanBase64 = imageBase64.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '');
+    const imagePart = {
+      inlineData: {
+        mimeType: mimeType || 'image/jpeg',
+        data: cleanBase64,
+      },
+    };
+
+    const promptText = `Anda adalah asisten AI OCR spesialis dokumen akademik skripsi universitas di Indonesia.
+Analisis foto dokumen lampiran skripsi ini (nama file sumber: "${fileName || 'foto_lampiran.jpg'}").
+
+Tugas Anda:
+1. Kenali jenis dokumen akademik ini dari teks cetak, judul halaman, tabel, atau stempel/tanda tangan:
+   - "pengesahan" : Halaman Pengesahan / Lembar Pengesahan Tim Penguji / Panitia Ujian Skripsi
+   - "persetujuan" : Halaman Persetujuan Pembimbing / Lembar Persetujuan Skripsi
+   - "keaslian" : Surat Pernyataan Keaslian Tulisan / Bebas Plagiasi Mandiri
+   - "surat_tugas" : Surat Tugas Pembimbing Penyusunan Skripsi dari Dekan / Fakultas
+   - "kartu_bimbingan_depan" : Kartu Bimbingan Halaman Depan (berisi data identitas Nama, NIM, Fakultas, Prodi, Judul)
+   - "kartu_bimbingan_belakang" : Kartu Bimbingan Halaman Belakang / Lanjutan (berisi tabel riwayat konsultasi & paraf)
+   - "izin_penelitian" : Surat Permohonan / Rekomendasi Izin Penelitian
+   - "telah_meneliti" : Surat Keterangan Telah Selesai Melakukan Penelitian dari Lokasi/Instansi
+   - "bebas_plagiasi" : Surat Keterangan Bebas Plagiasi (Turnitin / Perpustakaan)
+   - "unknown" : Jika foto bukan salah satu dokumen di atas
+
+2. Ekstrak judul/teks utama yang terbaca di bagian atas halaman (header snippet).
+3. Deteksi orientasi teks: apakah teks terbaca normal (0°), miring 90° searah jarum jam, 180° terbalik, atau 270°.
+4. Deteksi apakah ada latar belakang meja/alas di luar kertas dokumen (hasTableBackground: true/false).
+
+Kembalikan HANYA format JSON valid berikut:
+{
+  "documentType": "pengesahan",
+  "titleSnippet": "Judul dokumen yang terbaca",
+  "confidence": "high",
+  "orientation": 0,
+  "hasTableBackground": false
+}`;
+
+    const candidateModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
+    let lastError: any = null;
+
+    for (const modelName of candidateModels) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: {
+            parts: [imagePart, { text: promptText }],
+          },
+          config: {
+            responseMimeType: 'application/json',
+          },
+        });
+
+        if (response && response.text) {
+          let cleanText = response.text.trim();
+          if (cleanText.startsWith('```json')) {
+            cleanText = cleanText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+          } else if (cleanText.startsWith('```')) {
+            cleanText = cleanText.replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+          }
+          const parsed = JSON.parse(cleanText);
+          return res.json({
+            success: true,
+            model: modelName,
+            ...parsed,
+          });
+        }
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[Document OCR] Model ${modelName} warning:`, err?.message || err);
+      }
+    }
+
+    throw lastError || new Error('Gagal memproses OCR dengan model Gemini.');
+  } catch (error: any) {
+    console.error('Error /api/gemini/document-ocr:', error);
+    res.status(500).json({
+      error: error.message || 'Gagal memproses OCR foto dokumen.',
+      fallback: true,
+    });
+  }
+});
+
+/**
  * Gemini 3.1 Flash Lite Endpoints for Menu 1 Link 6 (Skripsi Jadi Artikel)
  */
 app.post('/api/gemini/translate-abstract', async (req, res) => {
@@ -719,10 +826,15 @@ ATURAN MERAPIKAN (TIDYING RULES):
 1. Ubah gaya bahasa dari skripsi menjadi gaya artikel jurnal ilmiah:
    - Ganti sebutan seperti "penulisan skripsi ini", "peneliti dalam skripsi ini", "pada bab I/bab IV" menjadi "penelitian ini", "kajian ini", "artikel ini".
    - Buang kalimat pengantar administratif skripsi yang tidak relevan (misal: "tujuan penulisan skripsi untuk memenuhi syarat kelulusan...", "sebagaimana diuraikan pada subbab sebelumnya").
-2. Rapikan alur dan kohesi antarparagraf agar runtut, akademis, padat, dan mengalir dengan baik tanpa melompat-lompat.
-3. JANGAN MENGHILANGKAN fakta, angka, nama tokoh, nama tempat, teori, atau temuan penelitian. Pertahankan integritas data primer/sekunder.
-4. Pertahankan jumlah paragraf yang wajar dan padat (kira-kira ${paragraphs.length} paragraf). Jangan menyatukan semua paragraf menjadi 1 dinding teks raksasa.
-5. Bersihkan sisa tanda baca ganda, spasi rusak, atau nomor-nomor sisa format skripsi.
+2. Khusus bagian METODE PENELITIAN:
+   - JANGAN membuat atau menyertakan sub-judul A, B, C (seperti A. Pendekatan Penelitian, B. Lokasi Penelitian).
+   - Teks narasi harus langsung mengalir secara komprehensif dari pendekatan, lokasi, sumber data, hingga analisis data tanpa sub-judul.
+3. Khusus bagian KESIMPULAN & SARAN:
+   - HAPUS judul subbab "A. Saran", "B. Saran", atau "Saran". Langsung satukan butir kesimpulan dan rekomendasi ke dalam penomoran berurutan yang rapi (1, 2, 3, 4, 5, 6).
+4. Rapikan alur dan kohesi antarparagraf agar runtut, akademis, padat, dan mengalir dengan baik tanpa melompat-lompat.
+5. JANGAN MENGHILANGKAN fakta, angka, nama tokoh, nama tempat, teori, atau temuan penelitian. Pertahankan integritas data primer/sekunder.
+6. Pertahankan jumlah paragraf yang wajar dan padat (kira-kira ${paragraphs.length} paragraf). Jangan menyatukan semua paragraf menjadi 1 dinding teks raksasa.
+7. Bersihkan sisa tanda baca ganda, spasi rusak, atau nomor-nomor sisa format skripsi.
 
 TEKS SUMBER (${sectionTitle}):
 ${paragraphs.map((p: string, idx: number) => `[Paragraf ${idx + 1}]:\n${p}`).join('\n\n')}`;

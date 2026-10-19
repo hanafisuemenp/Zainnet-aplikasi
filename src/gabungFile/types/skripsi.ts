@@ -46,6 +46,12 @@ export interface ScanFile {
   isFromPdf?: boolean;
   originalPdfName?: string;
   pdfPageNumber?: number;
+  isCropped?: boolean;
+  originalDataUrl?: string;
+  originalFile?: File;
+  deskewAngle?: number;
+  cropBounds?: { x: number; y: number; width: number; height: number };
+  enhancedContrast?: boolean;
 }
 
 export interface DocxElement {

@@ -29,6 +29,8 @@ import { applyScansToDocx } from './utils/docxModifier';
 import { validateDocxBlob } from './utils/docxValidator';
 import { rotateImageFile, autoRotateKartuBimbingan } from './utils/imageUtils';
 import { isPdfFile, convertPdfToJpgPages } from './utils/pdfConverter';
+import { DocumentCropModal } from './components/DocumentCropModal';
+import { autoProcessDocumentPhoto, CropResult } from './utils/documentCropper';
 
 export interface GabungFileProps {
   onExportComplete?: (fileName: string) => void;
@@ -45,6 +47,10 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
   const [isOcrRunning, setIsOcrRunning] = useState(false);
   const [isConvertingPdf, setIsConvertingPdf] = useState(false);
   const [pdfConversionStatus, setPdfConversionStatus] = useState<string>('');
+
+  // Auto-Crop & Deskew state
+  const [scanToCrop, setScanToCrop] = useState<ScanFile | null>(null);
+  const [isAutoCroppingAll, setIsAutoCroppingAll] = useState(false);
 
   // Configuration options
   const [options, setOptions] = useState<ProcessingOptions>({
@@ -105,6 +111,97 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
         message,
       },
     ]);
+  };
+
+  // Crop & Deskew Handlers for Student Document Attachments
+  const handleOpenCropModal = (scan: ScanFile) => {
+    setScanToCrop(scan);
+  };
+
+  const handleApplyCrop = (scanId: string, result: CropResult) => {
+    setScans((prev) =>
+      prev.map((s) =>
+        s.id === scanId
+          ? {
+              ...s,
+              file: result.file,
+              dataUrl: result.dataUrl,
+              width: result.width,
+              height: result.height,
+              aspectRatio: result.aspectRatio,
+              isCropped: true,
+              deskewAngle: result.angle,
+              cropBounds: result.bounds,
+              enhancedContrast: result.enhancedContrast,
+              originalFile: s.originalFile || s.file,
+              originalDataUrl: s.originalDataUrl || s.dataUrl,
+            }
+          : s
+      )
+    );
+    addLog(`✂️ Berhasil menyimpan crop meja & luruskan dokumen.`, 'success');
+  };
+
+  const handleRevertOriginal = (scanId: string) => {
+    setScans((prev) =>
+      prev.map((s) => {
+        if (s.id !== scanId || !s.originalDataUrl || !s.originalFile) return s;
+        return {
+          ...s,
+          file: s.originalFile,
+          dataUrl: s.originalDataUrl,
+          isCropped: false,
+          deskewAngle: 0,
+          cropBounds: undefined,
+          enhancedContrast: false,
+        };
+      })
+    );
+    addLog(`Dipulihkan ke foto asli utuh (tanpa crop).`, 'info');
+  };
+
+  const handleAutoCropAllScans = async () => {
+    if (scans.length === 0) return;
+    setIsAutoCroppingAll(true);
+    let croppedCount = 0;
+    try {
+      const updated = await Promise.all(
+        scans.map(async (scan) => {
+          if (scan.isFromPdf) return scan;
+          try {
+            const baseFile = scan.originalFile || scan.file;
+            const res = await autoProcessDocumentPhoto(baseFile);
+            if (res.isCropped) {
+              croppedCount++;
+              return {
+                ...scan,
+                file: res.file,
+                dataUrl: res.dataUrl,
+                width: res.width,
+                height: res.height,
+                aspectRatio: res.aspectRatio,
+                isCropped: true,
+                deskewAngle: res.deskewAngle,
+                cropBounds: res.cropBounds,
+                originalFile: res.originalFile,
+                originalDataUrl: res.originalDataUrl,
+              };
+            }
+          } catch (e) {
+            console.warn('Auto-crop error on scan:', scan.name, e);
+          }
+          return scan;
+        })
+      );
+      setScans(updated);
+      if (croppedCount > 0) {
+        addLog(`✂️ Berhasil memotong latar meja & meluruskan ${croppedCount} foto lampiran secara otomatis!`, 'success');
+      } else {
+        addLog(`Semua foto dokumen sudah presisi dan bersih tanpa latar meja.`, 'info');
+      }
+    } finally {
+      setIsAutoCroppingAll(false);
+    }
   };
 
   // Re-check Anchor Keyword
@@ -232,23 +329,58 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
       if (imageFiles.length > 0) {
         for (const file of imageFiles) {
           let currentFile = file;
-          const dataUrl = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target?.result as string);
-            reader.readAsDataURL(currentFile);
-          });
+          let isCropped = false;
+          let deskewAngle = 0;
+          let cropBounds: { x: number; y: number; width: number; height: number } | undefined;
+          let originalDataUrl: string | undefined;
+          let originalFile: File | undefined;
+          let dataUrl = '';
+          let width = 800;
+          let height = 1100;
 
-          const { width, height } = await new Promise<{ width: number; height: number }>((resolve) => {
-            const img = new Image();
-            img.onload = () => resolve({ width: img.width, height: img.height });
-            img.onerror = () => resolve({ width: 800, height: 1100 });
-            img.src = dataUrl;
-          });
+          // Auto-detect table background and camera tilt angle
+          try {
+            const processed = await autoProcessDocumentPhoto(currentFile);
+            originalDataUrl = processed.originalDataUrl;
+            originalFile = processed.originalFile;
+            width = processed.width;
+            height = processed.height;
+            dataUrl = processed.dataUrl;
+
+            if (processed.isCropped) {
+              currentFile = processed.file;
+              isCropped = true;
+              deskewAngle = processed.deskewAngle;
+              cropBounds = processed.cropBounds;
+              addLog(
+                `✂️ Auto-Crop: Menghapus latar meja & meluruskan kemiringan (${deskewAngle > 0 ? '+' : ''}${deskewAngle}°) pada "${file.name}"`,
+                'success'
+              );
+            }
+          } catch (cropErr) {
+            console.warn('Auto crop & deskew skipped for', file.name, cropErr);
+            dataUrl = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (e) => resolve(e.target?.result as string);
+              reader.readAsDataURL(currentFile);
+            });
+            const dim = await new Promise<{ width: number; height: number }>((resolve) => {
+              const img = new Image();
+              img.onload = () => resolve({ width: img.width, height: img.height });
+              img.onerror = () => resolve({ width: 800, height: 1100 });
+              img.src = dataUrl;
+            });
+            width = dim.width;
+            height = dim.height;
+          }
 
           // Auto rotate Kartu Bimbingan jika terbalik/portrait
           if (/bimbingan|kartu/i.test(currentFile.name) && height > width * 1.05) {
             const rotRes = await autoRotateKartuBimbingan(currentFile);
             currentFile = rotRes.file;
+            dataUrl = rotRes.dataUrl;
+            width = rotRes.width;
+            height = rotRes.height;
           }
 
           newScans.push({
@@ -263,6 +395,11 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
             detectionSource: 'filename',
             confidence: 'high',
             rotation: 0,
+            isCropped,
+            deskewAngle,
+            cropBounds,
+            originalDataUrl: originalDataUrl || dataUrl,
+            originalFile: originalFile || file,
           });
         }
       }
@@ -725,6 +862,10 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
           isOcrRunning={isOcrRunning}
           isConvertingPdf={isConvertingPdf}
           pdfConversionStatus={pdfConversionStatus}
+          onOpenCropModal={handleOpenCropModal}
+          onRevertOriginal={handleRevertOriginal}
+          onAutoCropAll={handleAutoCropAllScans}
+          isAutoCropping={isAutoCroppingAll}
         />
 
         {/* Step 3: Structure Inspector with Anchor Keyword */}
@@ -818,6 +959,16 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
         onAutoRotateKartu={handleAutoRotateKartu}
         onRotateSingleScan={handleRotateSingleScan}
       />
+
+      {/* Modal Auto-Crop & Deskew Foto Lampiran (Meja / Kemiringan) */}
+      {scanToCrop && (
+        <DocumentCropModal
+          scan={scanToCrop}
+          onClose={() => setScanToCrop(null)}
+          onApplyCrop={handleApplyCrop}
+          onRevertOriginal={handleRevertOriginal}
+        />
+      )}
 
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">

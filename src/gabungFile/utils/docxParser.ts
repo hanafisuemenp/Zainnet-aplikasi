@@ -240,23 +240,102 @@ export async function parseDocx(
     existingMediaCount++;
   });
 
-  const bodyStartTag = '<w:body>';
+  const bodyStartMatch = docXml.match(/<w:body\b[^>]*>/);
   const bodyEndTag = '</w:body>';
-  const startIdx = docXml.indexOf(bodyStartTag);
+  const startIdx = bodyStartMatch ? docXml.indexOf(bodyStartMatch[0]) : -1;
   const endIdx = docXml.lastIndexOf(bodyEndTag);
 
-  if (startIdx === -1 || endIdx === -1) {
+  if (startIdx === -1 || endIdx === -1 || !bodyStartMatch) {
     throw new Error('Format DOCX tidak valid: tag <w:body> tidak ditemukan.');
   }
 
-  const bodyContent = docXml.substring(startIdx + bodyStartTag.length, endIdx);
-  const tagRegex = /(?:<(w:p|w:tbl|w:sectPr|w:sdt)\b[\s\S]*?<\/\1>|<(w:p|w:tbl|w:sectPr|w:sdt)\b[^>]*\/>)/g;
+  const bodyContent = docXml.substring(startIdx + bodyStartMatch[0].length, endIdx);
+
+  // Fast linear element extraction (0 ms non-backtracking tokenizer)
+  const rawElements: { tag: 'w:p' | 'w:tbl' | 'w:sectPr' | 'w:sdt'; rawXml: string }[] = [];
+  let pos = 0;
+  const len = bodyContent.length;
+
+  while (pos < len) {
+    const nextTag = bodyContent.indexOf('<w:', pos);
+    if (nextTag === -1) break;
+
+    let tag: 'w:p' | 'w:tbl' | 'w:sectPr' | 'w:sdt' | '' = '';
+    if (bodyContent.startsWith('<w:p ', nextTag) || bodyContent.startsWith('<w:p>', nextTag) || bodyContent.startsWith('<w:p/>', nextTag)) {
+      tag = 'w:p';
+    } else if (bodyContent.startsWith('<w:tbl', nextTag)) {
+      tag = 'w:tbl';
+    } else if (bodyContent.startsWith('<w:sectPr', nextTag)) {
+      tag = 'w:sectPr';
+    } else if (bodyContent.startsWith('<w:sdt', nextTag)) {
+      tag = 'w:sdt';
+    } else {
+      pos = nextTag + 3;
+      continue;
+    }
+
+    const firstCloseBracket = bodyContent.indexOf('>', nextTag);
+    if (firstCloseBracket === -1) break;
+
+    // Self-closing tag
+    if (bodyContent.charAt(firstCloseBracket - 1) === '/') {
+      rawElements.push({ tag, rawXml: bodyContent.substring(nextTag, firstCloseBracket + 1) });
+      pos = firstCloseBracket + 1;
+      continue;
+    }
+
+    if (tag === 'w:p') {
+      const closeP = bodyContent.indexOf('</w:p>', firstCloseBracket);
+      if (closeP === -1) break;
+      const endPos = closeP + 6;
+      rawElements.push({ tag: 'w:p', rawXml: bodyContent.substring(nextTag, endPos) });
+      pos = endPos;
+      continue;
+    }
+
+    if (tag === 'w:sectPr') {
+      const closeS = bodyContent.indexOf('</w:sectPr>', firstCloseBracket);
+      if (closeS === -1) break;
+      const endPos = closeS + 11;
+      rawElements.push({ tag: 'w:sectPr', rawXml: bodyContent.substring(nextTag, endPos) });
+      pos = endPos;
+      continue;
+    }
+
+    // For w:tbl and w:sdt (track matching depth)
+    const closeTagStr = '</' + tag + '>';
+    const openTagStr = '<' + tag;
+    let depth = 1;
+    let sPos = firstCloseBracket + 1;
+
+    while (depth > 0 && sPos < len) {
+      const nOpen = bodyContent.indexOf(openTagStr, sPos);
+      const nClose = bodyContent.indexOf(closeTagStr, sPos);
+      if (nClose === -1) {
+        sPos = len;
+        break;
+      }
+
+      if (nOpen !== -1 && nOpen < nClose) {
+        const br = bodyContent.indexOf('>', nOpen);
+        if (br !== -1 && bodyContent.charAt(br - 1) !== '/') {
+          depth++;
+        }
+        sPos = br !== -1 ? br + 1 : nOpen + 5;
+      } else {
+        depth--;
+        sPos = nClose + closeTagStr.length;
+      }
+    }
+
+    rawElements.push({ tag, rawXml: bodyContent.substring(nextTag, sPos) });
+    pos = sPos;
+  }
 
   const elements: DocxElement[] = [];
   const headingsList: { index: number; text: string; page: number }[] = [];
   let anchorKeywordMatch: AnchorKeywordMatch | null = null;
 
-  let match: RegExpExecArray | null;
   let elementIndex = 0;
   let currentPage = 1;
   let pageCharAccumulator = 0;
@@ -264,9 +343,9 @@ export async function parseDocx(
   let bab1ElementIndex = -1;
   let daftarRujukanElementIndex = -1;
 
-  while ((match = tagRegex.exec(bodyContent)) !== null) {
-    const rawXml = match[0];
-    const tag = (match[1] || match[2]) as 'w:p' | 'w:tbl' | 'w:sectPr' | 'w:sdt';
+  for (const rawElem of rawElements) {
+    const rawXml = rawElem.rawXml;
+    const tag = rawElem.tag;
     const text = extractTextFromXml(rawXml);
 
     const hasDrawing = rawXml.includes('<w:drawing>') || rawXml.includes('<w:pict>');

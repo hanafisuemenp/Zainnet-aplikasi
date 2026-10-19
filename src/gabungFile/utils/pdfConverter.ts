@@ -42,9 +42,16 @@ async function loadPdfJsLibrary(): Promise<any> {
     try {
       await new Promise<void>((resolve, reject) => {
         const script = document.createElement('script');
+        const timeout = setTimeout(() => {
+          script.onerror = null;
+          script.onload = null;
+          reject(new Error(`Timeout loading ${cdn.lib}`));
+        }, 3500);
+
         script.src = cdn.lib;
         script.crossOrigin = 'anonymous';
         script.onload = () => {
+          clearTimeout(timeout);
           if (win.pdfjsLib) {
             win.pdfjsLib.GlobalWorkerOptions.workerSrc = cdn.worker;
             resolve();
@@ -52,7 +59,10 @@ async function loadPdfJsLibrary(): Promise<any> {
             reject(new Error('pdfjsLib is undefined'));
           }
         };
-        script.onerror = () => reject(new Error(`Failed to load ${cdn.lib}`));
+        script.onerror = () => {
+          clearTimeout(timeout);
+          reject(new Error(`Failed to load ${cdn.lib}`));
+        };
         document.head.appendChild(script);
       });
       return win.pdfjsLib;

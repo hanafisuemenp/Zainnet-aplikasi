@@ -474,13 +474,13 @@ button { cursor: pointer; }
 }
 .previewPaper .identity.author {
   font-weight: 700;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 .previewPaper .identity.academic {
-  font-size: 13pt;
+  font-size: 12pt;
   font-style: normal;
-  margin: 3px 0;
-  line-height: 1.2;
+  margin: 1px 0;
+  line-height: 1.25;
 }
 .previewPaper h4 {
   font-size: 12pt;
@@ -501,6 +501,13 @@ button { cursor: pointer; }
   text-indent: 0.75cm;
   margin: 0 0 6px;
   color: #111;
+}
+.previewPaper p.numbered {
+  text-indent: -0.63cm;
+  margin-left: 0.63cm;
+  margin-bottom: 6px;
+  line-height: 1.5;
+  text-align: justify;
 }
 .previewPaper p.sub {
   text-indent: 0;

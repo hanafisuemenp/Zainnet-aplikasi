@@ -62,6 +62,7 @@ export const defaultCustomPrices: CustomPricesConfig = {
     'foto-1': 5000,
     'label-103': 5000,
     'gabung-1': 5000,
+    'cover-1': 0,
   },
   categoryPrices: {
     1: 35000,
@@ -74,6 +75,8 @@ export const defaultCustomPrices: CustomPricesConfig = {
     8: 5000,
     9: 5000,
     10: 5000,
+    11: 0,
+    12: 0,
   },
   allAccessPriceRp: 50000,
   resellerDiscountPercentage: 50,
@@ -512,6 +515,28 @@ export const categoriesData: ToolCategory[] = [
         url: "/sewatoga",
         description: "Sistem booking dan reservasi sewa toga wisuda ZAIN.NET, cek stok ukuran toga, biaya sewa & jaminan, serta unduh invoice langsung.",
         badge: "Sewa Toga Wisuda",
+        priceRp: 0,
+      }
+    ]
+  },
+  {
+    id: 12,
+    number: 12,
+    title: "Edit Hard Cover",
+    subtitle: "Generator Hard Cover Skripsi Presisi 10–28 mm (GitHub Pages V4.10)",
+    description: "Sistem otomasi pembuatan & pengeditan Hard Cover Skripsi presisi milimeter (10–28 mm): Upload otomatis foto OCR lokal, ekstraksi halaman 1 PDF & Word DOCX, pilihan Master Polos (480×330 mm) & Warna/Maroon (475×320 mm), serta ekspor Batch PDF/ZIP siap cetak.",
+    iconName: "BookOpen",
+    packagePriceRp: 0,
+    tools: [
+      {
+        id: "cover-1",
+        categoryId: 12,
+        number: 1,
+        title: "Edit Hard Cover Skripsi",
+        domain: "hanslakomesem-commits.github.io",
+        url: "https://hanslakomesem-commits.github.io/Edit-Hard-Cover/",
+        description: "Generator hard cover skripsi presisi 10–28 mm dengan pembacaan otomatis foto, PDF halaman 1, Word DOCX cover, master polos & warna, serta ekspor PDF batch siap cetak.",
+        badge: "Menu 12 • Hard Cover Studio",
         priceRp: 0,
       }
     ]

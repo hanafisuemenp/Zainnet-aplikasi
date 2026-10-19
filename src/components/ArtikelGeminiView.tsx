@@ -29,7 +29,6 @@ import {
   PlanItem,
 } from '../lib/article-ai';
 import {
-  translateAbstractWithGemini,
   tidySectionWithGemini,
 } from '../lib/gemini-service';
 
@@ -201,25 +200,9 @@ export function ArtikelGeminiView({ onBackToHome, onExportComplete, isStandalone
   const updateBlob = async (
     currentDoc: ParsedDoc,
     currentAnalysis: any,
-    currentPlan: ArticlePlan,
-    currentEnAbstract = englishAbstract,
-    currentEnKeywords = englishKeywords
+    currentPlan: ArticlePlan
   ) => {
     try {
-      const enParagraphs = currentEnAbstract
-        .split(/\n\s*\n/)
-        .map(x => x.replace(/\s+/g, ' ').trim())
-        .filter(Boolean);
-
-      const enPayload =
-        useEnglish && enParagraphs.length > 0
-          ? {
-              body: enParagraphs.join('\n\n'),
-              paragraphs: enParagraphs,
-              keywords: currentEnKeywords.trim(),
-            }
-          : null;
-
       const newBlob = await buildArticleDocx(
         currentDoc,
         currentAnalysis,
@@ -228,8 +211,7 @@ export function ArtikelGeminiView({ onBackToHome, onExportComplete, isStandalone
           author: author || currentAnalysis.meta?.author,
           prodi: academicCase(prodi || currentAnalysis.meta?.prodi),
           univ: academicCase(univ || currentAnalysis.meta?.univ),
-        },
-        { englishAbstract: enPayload }
+        }
       );
       setBlob(newBlob);
       return newBlob;
@@ -239,82 +221,37 @@ export function ArtikelGeminiView({ onBackToHome, onExportComplete, isStandalone
     }
   };
 
-  // Trigger Gemini 3.1 Flash Lite Translation for Abstract
-  const translateAbstractNow = async (currentDoc: ParsedDoc, currentPlan: ArticlePlan) => {
-    setIsTranslating(true);
-    setMsg({ text: 'Gemini 3.1 Flash Lite sedang menerjemahkan abstrak secara instan...', type: 'info' });
-    try {
-      const src = extractAbstractSource(currentDoc, currentPlan);
-      if (!src.paragraphs.length) {
-        throw new Error('Paragraf Abstrak Indonesia tidak ditemukan.');
-      }
-      const res = await translateAbstractWithGemini(src.paragraphs, src.keywords);
-      const enText = res.paragraphs.join('\n\n');
-      const enKeys = res.keywords;
-
-      setEnglishAbstract(enText);
-      setEnglishKeywords(enKeys);
-      setMsg({
-        text: `Abstract Inggris selesai dalam sekejap! (${res.paragraphCount} paragraf, 100% selaras dengan Abstrak Indonesia).`,
-        type: 'ok',
-      });
-      return { body: enText, paragraphs: res.paragraphs, keywords: enKeys };
-    } catch (err: any) {
-      console.error(err);
-      setMsg({
-        text: 'Gagal menerjemahkan abstrak dengan Gemini: ' + (err.message || String(err)),
-        type: 'warn',
-      });
-      return null;
-    } finally {
-      setIsTranslating(false);
-    }
-  };
-
-  // Main pipeline: Read DOCX -> Universal Detector -> Gemini 3.1 Flash Lite -> Auto Download
+  // Main pipeline: Read DOCX -> Universal Detector -> Footnote Preservation -> Auto Download
   const runAnalysis = async () => {
     if (!file) return;
     setIsAnalyzing(true);
-    setProgress(15);
+    setProgress(20);
     setMsg({ text: 'Membaca seluruh struktur XML DOCX skripsi & memetakan footnote...', type: 'info' });
 
     try {
       const parsed = await readDocx(file);
       setDoc(parsed);
-      setProgress(35);
+      setProgress(45);
       setMsg({ text: 'Menganalisis bab, footnote, style Word, dan relevansi akademik...', type: 'info' });
 
       const evaluated = analyzeThesis(parsed);
       setAnalysis(evaluated);
 
-      // Auto fill metadata if blank
+      // Auto fill metadata: Hanya Nama, Prodi, Universitas
       if (!author) setAuthor(evaluated.meta.author || '');
       if (!prodi) setProdi(academicCase(evaluated.meta.prodi || ''));
       if (!univ) setUniv(academicCase(evaluated.meta.univ || ''));
 
-      setProgress(55);
-      setMsg({ text: 'Menyusun draft artikel ilmiah dengan footnote asli skripsi...', type: 'info' });
+      setProgress(70);
+      setMsg({ text: 'Menyusun draft artikel ilmiah dengan penomoran rapi dan footnote asli skripsi...', type: 'info' });
 
       const currentPlan = generatePlan(parsed, evaluated, { mode, mapping });
       setPlan(currentPlan);
 
-      // Translate Abstract with Gemini 3.1 Flash Lite
-      let enData: any = null;
-      if (useEnglish) {
-        setProgress(75);
-        enData = await translateAbstractNow(parsed, currentPlan);
-      }
-
       setProgress(90);
       setMsg({ text: 'Membuat dokumen Word .DOCX lengkap dengan catatan kaki (footnote)...', type: 'info' });
 
-      const finalBlob = await updateBlob(
-        parsed,
-        evaluated,
-        currentPlan,
-        enData?.body || '',
-        enData?.keywords || ''
-      );
+      const finalBlob = await updateBlob(parsed, evaluated, currentPlan);
 
       setProgress(100);
       const readyAuthor = shortAuthor(author || evaluated.meta.author);
@@ -329,7 +266,7 @@ export function ArtikelGeminiView({ onBackToHome, onExportComplete, isStandalone
       if (finalBlob) {
         setTimeout(() => {
           saveBlob(finalBlob, downloadName);
-        onExportComplete?.(downloadName);
+          onExportComplete?.(downloadName);
         }, 300);
       }
     } catch (err: any) {
@@ -467,14 +404,6 @@ export function ArtikelGeminiView({ onBackToHome, onExportComplete, isStandalone
     }
   };
 
-  // Re-translate button handler
-  const handleRetranslate = async () => {
-    if (!doc || !plan) return;
-    const res = await translateAbstractNow(doc, plan);
-    if (res && analysis) {
-      await updateBlob(doc, analysis, plan, res.body, res.keywords);
-    }
-  };
 
   // Save report .TXT
   const downloadReport = () => {
@@ -748,79 +677,7 @@ export function ArtikelGeminiView({ onBackToHome, onExportComplete, isStandalone
                 </span>
               </div>
 
-              <label className="flex items-start gap-2.5 p-3 rounded-xl bg-[#091a2d] border border-[#1f4060] cursor-pointer hover:border-sky-500/50 transition">
-                <input
-                  type="checkbox"
-                  checked={useEnglish}
-                  onChange={e => setUseEnglish(e.target.checked)}
-                  className="mt-0.5 rounded border-slate-700 text-sky-500 focus:ring-0"
-                />
-                <div>
-                  <div className="text-xs font-bold text-sky-200 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-                    Abstract English Gemini 3.1 Flash Lite (Bilingual)
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                    Menerjemahkan abstrak secara instan (~1 detik) tanpa unduhan besar, menjaga jumlah paragraf EN sama persis dengan ID.
-                  </p>
-                </div>
-              </label>
             </div>
-
-            {/* English Abstract Box */}
-            {useEnglish && (
-              <div className="mt-4 p-4 rounded-xl border border-[#254b6d] bg-[#071929]">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-bold text-xs text-sky-300 flex items-center gap-1.5">
-                    Abstract Bahasa Inggris (Gemini 3.1 Flash Lite)
-                  </span>
-                  {paragraphMatchStatus.enCount > 0 && (
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                        paragraphMatchStatus.match
-                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                          : 'bg-amber-950 text-amber-300 border border-amber-800'
-                      }`}
-                    >
-                      {paragraphMatchStatus.match
-                        ? `Paragraf ID (${paragraphMatchStatus.idCount}) = EN (${paragraphMatchStatus.enCount}) ✓`
-                        : `Beda: ID (${paragraphMatchStatus.idCount}) ≠ EN (${paragraphMatchStatus.enCount})`}
-                    </span>
-                  )}
-                </div>
-
-                <textarea
-                  rows={6}
-                  placeholder="Abstract Bahasa Inggris akan diterjemahkan otomatis setelah analisis..."
-                  value={englishAbstract}
-                  onChange={e => setEnglishAbstract(e.target.value)}
-                  className="w-full bg-[#081526] border border-[#2a4562] focus:border-sky-400 rounded-lg p-2.5 text-xs text-slate-200 outline-none leading-relaxed font-serif"
-                />
-
-                <div className="mt-2">
-                  <label className="block text-[11px] text-slate-300 font-semibold mb-1">Keywords (Inggris)</label>
-                  <input
-                    type="text"
-                    placeholder="Keywords translated..."
-                    value={englishKeywords}
-                    onChange={e => setEnglishKeywords(e.target.value)}
-                    className="w-full bg-[#081526] border border-[#2a4562] focus:border-sky-400 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 outline-none font-serif"
-                  />
-                </div>
-
-                {doc && plan && (
-                  <button
-                    type="button"
-                    disabled={isTranslating}
-                    onClick={handleRetranslate}
-                    className="mt-2.5 w-full py-1.5 px-3 rounded-lg bg-[#143250] hover:bg-[#1a4066] border border-[#27537e] text-xs font-semibold text-sky-200 flex items-center justify-center gap-1.5 disabled:opacity-50 transition"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isTranslating ? 'animate-spin' : ''}`} />
-                    {isTranslating ? 'Menerjemahkan dengan Gemini...' : 'Terjemahkan Ulang Abstract (Gemini)'}
-                  </button>
-                )}
-              </div>
-            )}
 
             {/* Action Buttons */}
             <div className="mt-5 space-y-2">
@@ -1104,9 +961,12 @@ export function ArtikelGeminiView({ onBackToHome, onExportComplete, isStandalone
                             const isKey = isAbs && (x.role === 'keywords' || /^KATA\s*KUNCI\b/i.test(t));
                             const fnIds = itemFootnoteIds(doc, x);
 
+                            const isNumbered = x.role === 'numbered' || /^\d+[.)]\s+/.test(t);
+
                             let pClass = '';
                             if (x.role === 'subheading') pClass += 'sub ';
                             if (isAbs) pClass += 'abstractText ';
+                            if (isNumbered) pClass += 'numbered ';
                             if (isConc) pClass += 'conclusionHead ';
                             if (isKey) pClass += 'abstractKeywords ';
                             if (isBib) pClass += 'bib ';
@@ -1134,33 +994,6 @@ export function ArtikelGeminiView({ onBackToHome, onExportComplete, isStandalone
                               </p>
                             );
                           })}
-
-                          {/* Bilingual English Abstract */}
-                          {isAbs && useEnglish && (
-                            <div className="mt-4">
-                              <h4 className="center">ABSTRACT</h4>
-                              {englishAbstract ? (
-                                <>
-                                  {englishAbstract
-                                    .split(/\n\s*\n/)
-                                    .map(x => x.replace(/\s+/g, ' ').trim())
-                                    .filter(Boolean)
-                                    .map((par, pIdx) => (
-                                      <p key={pIdx} className="abstractText">
-                                        {par}
-                                      </p>
-                                    ))}
-                                  {englishKeywords && (
-                                    <p className="abstractKeywords">
-                                      <b>Keywords: {englishKeywords}</b>
-                                    </p>
-                                  )}
-                                </>
-                              ) : (
-                                <div className="previewPending">English Abstract sedang disiapkan...</div>
-                              )}
-                            </div>
-                          )}
                         </div>
                       );
                     })}
