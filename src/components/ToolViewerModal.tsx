@@ -30,6 +30,7 @@ import GabungFileApp from '../gabungFile/App';
 import { NotaJilidView } from './NotaJilidView';
 import { SewaTogaView } from './SewaTogaView';
 import { ArtikelGeminiView } from './ArtikelGeminiView';
+import JournalConverterApp from '../journalConverter/App';
 
 interface ToolViewerModalProps {
   tool: ToolItem | null;
@@ -187,12 +188,15 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
       tool.id === 'label-103' ||
       tool.id === 'gabung-1' ||
       tool.id === 'art-6' ||
+      tool.id === 'art-7' ||
       tool.url === 'internal://skripsi-paginator' ||
       tool.url === 'internal://skripsi-paginator-fixed' ||
       tool.url === 'internal://docx-photo-grid' ||
       tool.url === 'internal://label-103' ||
       tool.url === 'internal://gabung-file' ||
-      tool.url === 'internal://artikel-gemini';
+      tool.url === 'internal://artikel-gemini' ||
+      tool.url === 'internal://journal-converter' ||
+      tool.url === '/journal-converter';
     setIsLoading(!isInternalPaginator);
     hasTriggeredFinishRef.current = false;
     const startStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -627,12 +631,15 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
       tool.id === 'label-103' ||
       tool.id === 'gabung-1' ||
       tool.id === 'art-6' ||
+      tool.id === 'art-7' ||
       tool.url === 'internal://skripsi-paginator' ||
       tool.url === 'internal://skripsi-paginator-fixed' ||
       tool.url === 'internal://docx-photo-grid' ||
       tool.url === 'internal://label-103' ||
       tool.url === 'internal://gabung-file' ||
-      tool.url === 'internal://artikel-gemini';
+      tool.url === 'internal://artikel-gemini' ||
+      tool.url === 'internal://journal-converter' ||
+      tool.url === '/journal-converter';
     setIsLoading(!isInternalPaginator);
     setIframeKey((prev) => prev + 1);
     addLog('action', 'Pengguna menyegarkan (reload) tampilan modul.');
@@ -1101,6 +1108,17 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
                 handleAutoFinishDownload(
                   outFileName,
                   'Penyusunan naskah artikel ilmiah .DOCX + Gemini 3.1 Flash Lite selesai'
+                );
+              }}
+            />
+          </div>
+        ) : tool.id === 'art-7' || tool.url === 'internal://journal-converter' || tool.url === '/journal-converter' ? (
+          <div key={iframeKey} className="w-full h-full overflow-y-auto bg-slate-100">
+            <JournalConverterApp
+              onArticleComplete={(outFileName) => {
+                handleAutoFinishDownload(
+                  outFileName,
+                  'Penyusunan naskah artikel ilmiah + Cover CD (Gemini 3.1 Flash Lite) selesai'
                 );
               }}
             />

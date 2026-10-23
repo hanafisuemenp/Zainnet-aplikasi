@@ -45,6 +45,7 @@ import { AGC_DEEP_7000_ARTICLES } from './src/data/agcDeepArticlesData.js';
 import { generateProcedural7000WordArticle, expandPostTo7000Words } from './src/utils/agcDeepArticleGenerator.js';
 // @ts-ignore
 import { hardCoverRouter } from './server/hardcover/router.mjs';
+import { journal7Router } from './server/journal7/router';
 
 const nodeRequire = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
 
@@ -96,6 +97,9 @@ app.use('/uploads', express.static(GENERAL_UPLOADS_DIR));
 // Menu No 12: ZAIN.NET AI Cover Skripsi V4.2 static files and API router
 app.use('/hardcover', express.static(path.join(process.cwd(), 'public', 'hardcover')));
 app.use(hardCoverRouter);
+
+// Menu No 1 Link 7: Generator Artikel Jurnal Ilmiah (IAIN Madura) + Cover CD (Gemini 3.1 Flash Lite)
+app.use('/api/journal7', journal7Router);
 
 // R2 Storage configuration file path for runtime persistence
 const R2_CONFIG_FILE = path.join(process.cwd(), 'r2_config.json');

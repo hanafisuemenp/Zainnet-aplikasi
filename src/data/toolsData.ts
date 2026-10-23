@@ -160,7 +160,7 @@ export const categoriesData: ToolCategory[] = [
     id: 1,
     number: 1,
     title: "Pembuatan Artikel Skripsi & Artikel Ilmiah",
-    subtitle: "6 link generator naskah, skripsi & jurnal publikasi (Dihitung per tiap link)",
+    subtitle: "7 link generator naskah, skripsi & jurnal publikasi (Dihitung per tiap link)",
     description: "Sistem otomasi cerdas penyusunan artikel skripsi & naskah karya ilmiah. Pembayaran dan kuota dihitung mandiri per tiap link yang dipilih (Rp 20.000 / link).",
     iconName: "FileText",
     packagePriceRp: 45000,
@@ -229,6 +229,17 @@ export const categoriesData: ToolCategory[] = [
         url: "/artikel-gemini",
         description: "Link 6: ZAIN.NET Skripsi Jadi Artikel • Gemini 3.1 Flash Lite — konversi skripsi DOCX jadi artikel ilmiah terstruktur otomatis dengan perapian AI & abstrak bilingual super cepat.",
         badge: "Link 6 • Gemini 3.1 Flash Lite",
+        priceRp: 20000,
+      },
+      {
+        id: "art-7",
+        categoryId: 1,
+        number: 7,
+        title: "Generator Artikel (Link 7)",
+        domain: "artikel-jurnal.zain.net",
+        url: "internal://journal-converter",
+        description: "Link 7: Generator Artikel Jurnal Ilmiah (IAIN Madura) + Cover CD Otomatis • Gemini 3.1 Flash Lite — ubah skripsi DOCX menjadi artikel jurnal ilmiah terstruktur, footnote rapi, dan cover CD siap cetak.",
+        badge: "Link 7 • Gemini 3.1 Flash Lite",
         priceRp: 20000,
       }
     ]

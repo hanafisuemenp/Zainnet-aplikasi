@@ -78,6 +78,7 @@ const SewaTogaView = lazy(() => import('./components/SewaTogaView').then(m => ({
 const GabungFileApp = lazy(() => import('./gabungFile/App'));
 const ArtikelGeminiView = lazy(() => import('./components/ArtikelGeminiView').then(m => ({ default: m.ArtikelGeminiView })));
 const HardCoverView = lazy(() => import('./components/HardCoverView').then(m => ({ default: m.HardCoverView })));
+const JournalConverterApp = lazy(() => import('./journalConverter/App'));
 import { MakalahPost, AgcPost } from './types';
 const MakalahBlogView = lazy(() => import('./components/MakalahBlogView').then(m => ({ default: m.MakalahBlogView })));
 const AgcBlogView = lazy(() => import('./components/AgcBlogView').then(m => ({ default: m.AgcBlogView })));
@@ -2608,6 +2609,19 @@ export default function App() {
             setCurrentPath('');
           }}
           isStandalone={true}
+        />
+      </Suspense>
+    );
+  }
+
+  const isJournalConverter = currentPath === '/journal-converter' || currentPath === '/artikel7' || currentPath === '/artikel-jurnal' || searchParams.get('view') === 'journal-converter' || searchParams.get('view') === 'artikel7';
+  if (isJournalConverter) {
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center text-blue-400 font-semibold">Memuat Generator Artikel Link 7 • Gemini 3.1 Flash Lite...</div>}>
+        <JournalConverterApp
+          onArticleComplete={(fileName) => {
+            console.log('Artikel selesai:', fileName);
+          }}
         />
       </Suspense>
     );
