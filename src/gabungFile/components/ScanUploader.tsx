@@ -105,16 +105,15 @@ export const ScanUploader: React.FC<ScanUploaderProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {scans.length > 0 && onAutoCropAll && (
+          {scans.length > 0 && onOpenCropModal && (
             <button
               type="button"
-              onClick={onAutoCropAll}
-              disabled={isAutoCropping}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs cursor-pointer transition disabled:opacity-50"
-              title="Deteksi dan potong otomatis latar meja serta luruskan kemiringan seluruh foto dokumen"
+              onClick={() => onOpenCropModal(scans[0])}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs cursor-pointer transition"
+              title="Pilih bagian penting dokumen secara manual"
             >
               <Scissors className="w-3.5 h-3.5" />
-              <span>{isAutoCropping ? 'Memotong Meja...' : 'Auto-Crop Semua Meja'}</span>
+              <span>✂️ Crop Manual Dokumen</span>
             </button>
           )}
 
@@ -233,7 +232,7 @@ export const ScanUploader: React.FC<ScanUploaderProps> = ({
                       </button>
                       {onOpenCropModal && (
                         <button
-                          title="Deteksi & Auto-Crop Meja / Luruskan"
+                          title="Auto-Crop Meja Tanpa Rotasi"
                           onClick={() => onOpenCropModal(scan)}
                           className="p-2 rounded-full bg-emerald-600/80 hover:bg-emerald-600 text-white backdrop-blur-xs transition cursor-pointer"
                         >
@@ -291,17 +290,12 @@ export const ScanUploader: React.FC<ScanUploaderProps> = ({
                         </button>
                       </div>
 
-                      {/* Auto-Crop Table Status & Fine-tune control */}
+                      {/* Manual Crop Status & Controls */}
                       {scan.isCropped ? (
                         <div className="mt-2 p-2 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between text-[11px] text-emerald-800">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse"></span>
-                            <span className="font-bold truncate">✂️ Meja Terpotong</span>
-                            {Math.abs(scan.deskewAngle || 0) >= 0.5 && (
-                              <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-mono font-medium shrink-0">
-                                {scan.deskewAngle! > 0 ? '+' : ''}{scan.deskewAngle}°
-                              </span>
-                            )}
+                            <span className="font-bold truncate">✂️ Di-crop Manual</span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0 ml-1">
                             {onOpenCropModal && (
@@ -310,32 +304,33 @@ export const ScanUploader: React.FC<ScanUploaderProps> = ({
                                 onClick={() => onOpenCropModal(scan)}
                                 className="text-emerald-700 hover:text-emerald-900 font-bold hover:underline cursor-pointer text-[10px]"
                               >
-                                Sesuaikan
+                                ✂️ Ubah Crop
                               </button>
                             )}
                             {onRevertOriginal && scan.originalDataUrl && (
                               <button
                                 type="button"
                                 onClick={() => onRevertOriginal(scan.id)}
-                                className="text-slate-400 hover:text-slate-600 cursor-pointer text-[10px]"
+                                className="text-slate-400 hover:text-rose-600 cursor-pointer text-[10px]"
                                 title="Kembalikan foto asli belum di-crop"
                               >
-                                Asli
+                                Foto Asli
                               </button>
                             )}
                           </div>
                         </div>
                       ) : (
-                        <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 bg-slate-100/70 px-2.5 py-1 rounded-md">
-                          <span>Dokumen Utuh</span>
+                        <div className="mt-2 flex items-center justify-between text-[11px] bg-emerald-50/70 border border-emerald-200/80 px-2.5 py-1.5 rounded-lg">
+                          <span className="text-slate-600 font-medium">Foto Asli Utuh</span>
                           {onOpenCropModal && (
                             <button
                               type="button"
                               onClick={() => onOpenCropModal(scan)}
-                              className="text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer inline-flex items-center gap-1 text-[10px]"
+                              className="text-emerald-800 hover:text-emerald-950 font-bold cursor-pointer inline-flex items-center gap-1 text-[11px] bg-white px-2.5 py-1 rounded-md border border-emerald-300 shadow-2xs hover:bg-emerald-100/70 transition"
+                              title="Pilih bagian penting dokumen seperti tanda tangan, stempel, atau isi teks"
                             >
-                              <Crop className="w-3 h-3" />
-                              Crop Meja
+                              <Scissors className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>✂️ Crop Manual</span>
                             </button>
                           )}
                         </div>

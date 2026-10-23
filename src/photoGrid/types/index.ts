@@ -112,6 +112,7 @@ export interface GridConfig {
   rowSpacingCm: number; // space between rows
   columnsMode: 'auto' | 'custom';
   customColumns: number;
+  customRows?: number; // Exact rows per page for A4 photo layouts (isi 2, 3, 4, 6, 8, 10, 12 foto)
   showCutGuides: boolean; // thin cutting border around photos
   showLabels: boolean; // caption below photo
   labelType: 'filename' | 'counter' | 'blank';

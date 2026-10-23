@@ -95,6 +95,15 @@ function normalize(s: string): string {
     .trim();
 }
 
+export function isCoverHeadingOrContent(text: string): boolean {
+  const t = normalize(text);
+  const arabKey = normalizeArabicKey(text).replace(/^[^\u0600-\u06FFA-Z0-9]+/, '');
+  if (/^(?:صفحه\s+الغلاف|الغلاف|صفحه\s+العنوان|شعار|الشعار)\b/.test(arabKey)) {
+    return true;
+  }
+  return /^(?:HALAMAN\s+SAMPUL|HALAMAN\s+JUDUL|SAMPUL\s+LUAR|SAMPUL\s+DALAM|COVER|JUDUL\s+SKRIPSI|SKRIPSI|PROPOSAL\s+SKRIPSI|PROPOSAL\s+PENELITIAN|TESIS|DISERTASI|MAKALAH)\b/i.test(t);
+}
+
 export function isProposalDocument(paragraphs: Element[], profile: DocumentNumberingProfile): boolean {
   if (profile === 'proposal' || profile === 'arab-proposal') return true;
 
@@ -1177,12 +1186,13 @@ export function processDocumentTocWorkflow(
       if (!rawFront) continue;
       const t = normalize(rawFront).replace(/^[^A-Z0-9\u0600-\u06FF]+|[^A-Z0-9\u0600-\u06FF]+$/g, '');
       const arabKey = normalizeArabicKey(rawFront).replace(/^[^\u0600-\u06FFA-Z0-9]+|[^\u0600-\u06FFA-Z0-9]+$/g, '');
-      const isIndoFront = /^(HALAMAN JUDUL|HALAMAN SAMPUL|LEMBAR PERSETUJUAN|HALAMAN PERSETUJUAN|PERSETUJUAN PEMBIMBING|NOTA DINAS|LEMBAR PENGESAHAN|HALAMAN PENGESAHAN|PERNYATAAN KEASLIAN|PERNYATAAN ORISINALITAS|HALAMAN PERNYATAAN|SURAT PERNYATAAN|MOTTO|HALAMAN MOTTO|HALAMAN PERSEMBAHAN|PERSEMBAHAN|ABSTRAK|ABSTRACT|RINGKASAN|INTISARI|KATA PENGANTAR|PRAKATA|UCAPAN TERIMA KASIH|PEDOMAN TRANSLITERASI|DAFTAR ISI|TABLE OF CONTENTS|ISI MAKALAH|ISI PROPOSAL|DAFTAR TABEL|DAFTAR GAMBAR|DAFTAR LAMPIRAN|DAFTAR BAGAN|DAFTAR SINGKATAN|DAFTAR SIMBOL)\b/i.test(t);
+      const isIndoFront = !isCoverHeadingOrContent(rawFront) && /^(LEMBAR\s+PERSETUJUAN|HALAMAN\s+PERSETUJUAN|PERSETUJUAN\s+PEMBIMBING|PERSETUJUAN|NOTA\s+DINAS|LEMBAR\s+PENGESAHAN|HALAMAN\s+PENGESAHAN|PENGESAHAN|LEMBAR\s+PERNYATAAN|HALAMAN\s+PERNYATAAN|SURAT\s+PERNYATAAN|PERNYATAAN\s+KEASLIAN|PERNYATAAN\s+ORISINALITAS|PERNYATAAN|MOTTO|HALAMAN\s+MOTTO|HALAMAN\s+PERSEMBAHAN|PERSEMBAHAN|ABSTRAK|ABSTRACT|RINGKASAN|INTISARI|KATA\s+PENGANTAR|PRAKATA|UCAPAN\s+TERIMA\s+KASIH|PEDOMAN\s+TRANSLITERASI|DAFTAR\s+ISI|TABLE\s+OF\s+CONTENTS|ISI\s+MAKALAH|ISI\s+PROPOSAL|DAFTAR\s+TABEL|DAFTAR\s+GAMBAR|DAFTAR\s+LAMPIRAN|DAFTAR\s+BAGAN|DAFTAR\s+SINGKATAN|DAFTAR\s+SIMBOL)\b/i.test(t);
       const isArabFront =
-        isArabicTocHeadingKeyword(rawFront) ||
-        /^(صفحه العنوان|صفحه الغلاف|صفحه الموافقه|موافقه المشرف|مذكره المشرف|صفحه الاعتماد|اعتماد لجنه المناقشه|اقرار الطالب|اقرار الاصاله|شعار البحث|الشعار|الاهداء|ملخص البحث|الملخص|مستخلص البحث|المستخلص|كلمه الشكر|تقدير وشكر|شكر وتقدير|تمهيد|مقدمه الكاتب|مقدمه|فهرس المحتويات|فهرس الموضوعات|قائمه المحتويات|قائمه الموضوعات|الفهرس|المحتويات|قائمه الجداول|فهرس الجداول|قائمه الاشكال|فهرس الاشكال|قائمه الملاحق|فهرس الملاحق|قائمه الرموز|قائمه الاختصارات)\b/.test(
+        !isCoverHeadingOrContent(rawFront) &&
+        (isArabicTocHeadingKeyword(rawFront) ||
+        /^(صفحه\s+الموافقه|موافقه\s+المشرف|مذكره\s+المشرف|صفحه\s+الاعتماد|اعتماد\s+لجنه\s+المناقشه|اقرار\s+الطالب|اقرار\s+الاصاله|الاهداء|ملخص\s+البحث|الملخص|مستخلص\s+البحث|المستخلص|كلمه\s+الشكر|تقدير\s+وشكر|شكر\s+وتقدير|تمهيد|مقدمه(?:\s+الكاتب)?|فهرس\s+المحتويات|فهرس\s+الموضوعات|قائمه\s+المحتويات|قائمه\s+الموضوعات|الفهرس|المحتويات|قائمه\s+الجداول|فهرس\s+الجداول|قائمه\s+الاشكال|فهرس\s+الاشكال|قائمه\s+الملاحق|فهرس\s+الملاحق|قائمه\s+الرموز|قائمه\s+الاختصارات)\b/.test(
           arabKey
-        );
+        ));
       if (
         (isIndoFront || isArabFront) &&
         rawFront.length <= 80 &&

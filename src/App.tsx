@@ -46,34 +46,33 @@ import {
   DailyTrafficStat
 } from './types';
 import { recordWebTrafficVisit, subscribeToTodayTraffic } from './utils/trafficTracker';
-import { TrafficStatsModal } from './components/TrafficStatsModal';
+const TrafficStatsModal = lazy(() => import('./components/TrafficStatsModal').then(m => ({ default: m.TrafficStatsModal })));
 import { collectDeviceFingerprint } from './utils/deviceFingerprint';
-import { FreeTrialClaimModal } from './components/FreeTrialClaimModal';
+const FreeTrialClaimModal = lazy(() => import('./components/FreeTrialClaimModal').then(m => ({ default: m.FreeTrialClaimModal })));
 import { FreeTrialHomeBanner } from './components/FreeTrialHomeBanner';
 import { LoginView } from './components/LoginView';
 import { Navbar } from './components/Navbar';
 import { CategorySection } from './components/CategorySection';
 const ToolViewerModal = lazy(() => import('./components/ToolViewerModal').then(m => ({ default: m.ToolViewerModal })));
-import { UserProfileModal } from './components/UserProfileModal';
-import { RoleManagementModal } from './components/RoleManagementModal';
-import { ManualQrisPaymentModal, CheckoutTarget } from './components/ManualQrisPaymentModal';
-import { ManualQrisSettingsModal } from './components/ManualQrisSettingsModal';
+const UserProfileModal = lazy(() => import('./components/UserProfileModal').then(m => ({ default: m.UserProfileModal })));
+const RoleManagementModal = lazy(() => import('./components/RoleManagementModal').then(m => ({ default: m.RoleManagementModal })));
+import type { CheckoutTarget } from './components/ManualQrisPaymentModal';
+const ManualQrisPaymentModal = lazy(() => import('./components/ManualQrisPaymentModal').then(m => ({ default: m.ManualQrisPaymentModal })));
+const ManualQrisSettingsModal = lazy(() => import('./components/ManualQrisSettingsModal').then(m => ({ default: m.ManualQrisSettingsModal })));
 const AdminVerificationModal = lazy(() => import('./components/AdminVerificationModal').then(m => ({ default: m.AdminVerificationModal })));
-import { AdminPinModal } from './components/AdminPinModal';
+const AdminPinModal = lazy(() => import('./components/AdminPinModal').then(m => ({ default: m.AdminPinModal })));
 import { WhatsAppSupportWidget } from './components/WhatsAppSupportWidget';
 import { LoyaltyBanner } from './components/LoyaltyBanner';
 import { HeroSection } from './components/HeroSection';
-import { ModuleGrid } from './components/ModuleGrid';
 import { TrustBadges } from './components/TrustBadges';
 import { Footer } from './components/Footer';
-import { RewardCelebrationModal } from './components/RewardCelebrationModal';
+const RewardCelebrationModal = lazy(() => import('./components/RewardCelebrationModal').then(m => ({ default: m.RewardCelebrationModal })));
 const AdminAnalyticsModal = lazy(() => import('./components/AdminAnalyticsModal').then(m => ({ default: m.AdminAnalyticsModal })));
-import { PriceManagementModal } from './components/PriceManagementModal';
-import { DocumentArchiveModal } from './components/DocumentArchiveModal';
-import { TopUpModal } from './components/TopUpModal';
+const PriceManagementModal = lazy(() => import('./components/PriceManagementModal').then(m => ({ default: m.PriceManagementModal })));
+const DocumentArchiveModal = lazy(() => import('./components/DocumentArchiveModal').then(m => ({ default: m.DocumentArchiveModal })));
+const TopUpModal = lazy(() => import('./components/TopUpModal').then(m => ({ default: m.TopUpModal })));
 import { WalletHomeBanner } from './components/WalletHomeBanner';
 import { AuthBridgeView } from './components/AuthBridgeView';
-import { NotaHardcover } from './components/NotaHardcover';
 const NotaJilidView = lazy(() => import('./components/NotaJilidView').then(m => ({ default: m.NotaJilidView })));
 const SewaTogaView = lazy(() => import('./components/SewaTogaView').then(m => ({ default: m.SewaTogaView })));
 const GabungFileApp = lazy(() => import('./gabungFile/App'));
@@ -449,11 +448,6 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
 
   // Load global roles config, dynamic prices, QRIS config & listen to Auth state
   useEffect(() => {
-    // Safety timeout: never hang on loading screen for more than 1.2s under slow cellular connections
-    const authSafetyTimer = setTimeout(() => {
-      setAuthLoading(false);
-    }, 1200);
-
     // Load remote roles, prices, and QRIS config from Firestore & bootstrap defaults if fresh
     const loadRemoteConfigs = async () => {
       try {
@@ -625,7 +619,6 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
     window.addEventListener('popstate', handlePopState);
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      clearTimeout(authSafetyTimer);
 
       // Invalidate existing sessions from the previous leaked credentials epoch
       if (typeof window !== 'undefined' && localStorage.getItem('zain_auth_epoch_firebase') !== SESSION_SECURITY_EPOCH) {
@@ -892,7 +885,6 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
     });
 
     return () => {
-      clearTimeout(authSafetyTimer);
       unsubscribe();
       window.removeEventListener('popstate', handlePopState);
     };
@@ -1830,42 +1822,9 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
       searchParams.has('post')
     ));
 
-  // Loading state (only blocks access to private AI tools hub; never blocks public blog readers)
-  if (authLoading && !isBlogOrPostRoute) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-100 px-4 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-violet-600 flex items-center justify-center font-extrabold text-2xl text-white shadow-xl shadow-blue-500/25 animate-pulse mb-4">
-          Z
-        </div>
-        <p className="text-base font-bold text-slate-200">Menghubungkan ke ZAIN.NET...</p>
-        <p className="text-xs text-slate-400 mt-1 mb-6 max-w-xs leading-relaxed">
-          Memverifikasi sesi & modul akademik. Jika koneksi lambat, Anda dapat langsung masuk di bawah.
-        </p>
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              setAuthLoading(false);
-              setIsGuest(true);
-              localStorage.setItem('zain_guest_session', 'true');
-            }}
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-600/30 transition-all cursor-pointer"
-          >
-            Buka Aplikasi Langsung (Mode Tamu)
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAuthLoading(false);
-            }}
-            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition-all cursor-pointer"
-          >
-            Halaman Login
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Optimasi: jangan blokir halaman awal hanya untuk menunggu Firebase Auth.
+  // LoginView dapat dirender langsung; sesi Firebase yang valid akan masuk
+  // otomatis begitu onAuthStateChanged selesai, tanpa splash 1,2 detik.
 
   // Not logged in and not in guest preview -> only show login screen if trying to use AI tools
   if (!user && !isGuest && !isBlogOrPostRoute) {
@@ -1886,11 +1845,13 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
           }}
         />
         {showPinLoginModal && (
+          <Suspense fallback={null}>
           <AdminPinModal
             rolesConfig={rolesConfig}
             onClose={() => setShowPinLoginModal(false)}
             onSuccessLogin={handleCustomLogin}
           />
+          </Suspense>
         )}
       </>
     );
@@ -2209,11 +2170,12 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
           />
         )}
 
-        {/* Classic Accordion Category List Section */}
-        <section id="semua-modul" className="charitize-services space-y-3.5">
+        {/* Tampilan menu 2 kolom rapi persis seperti di foto referensi */}
+        <section id="semua-modul" className="charitize-services space-y-4">
           <div className="charitize-section-heading"><span>LAYANAN ZAIN.NET</span><h2>Pilih layanan sesuai kebutuhan</h2><p>Seluruh menu 1–12 tersedia di bawah ini. Buka menu untuk melihat pilihan dan harga.</p></div>
           {filteredCategories.length > 0 ? (
-            filteredCategories.map((category) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5" aria-label="Pilihan menu ZAIN.NET">
+            {filteredCategories.map((category) => (
               <CategorySection
                 key={category.id}
                 category={category}
@@ -2270,7 +2232,8 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
                 onCheckoutRequest={(target) => setCheckoutTarget(target)}
                 onClaimReward={handleClaimLoyaltyReward}
               />
-            ))
+            ))}
+            </div>
           ) : (
             <div className="p-8 text-center rounded-3xl bg-[#141c2e] border border-gray-800 text-gray-400">
               <p className="font-semibold text-white">Tidak ada modul yang cocok dengan pencarian</p>
@@ -2324,6 +2287,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
       /></Suspense>}
 
       {/* 1x Free Trial Anti-Abuse Claim & Diagnostics Modal */}
+      {(showFreeTrialModal) && <Suspense fallback={null}>
       <FreeTrialClaimModal
         isOpen={showFreeTrialModal}
         tool={freeTrialTargetTool}
@@ -2346,8 +2310,10 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
           });
         }}
       />
+      </Suspense>}
 
       {/* Manual QRIS & Bank Transfer Checkout Modal */}
+      {(checkoutTarget !== null) && <Suspense fallback={null}>
       <ManualQrisPaymentModal
         target={checkoutTarget}
         user={user}
@@ -2364,9 +2330,11 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
         onUseFreeReward={handleUseFreeRewardFromCheckout}
         onUseResellerTrial={handleUseResellerTrialFromCheckout}
       />
+      </Suspense>}
 
       {/* User Profile Modal */}
       {showProfileModal && (
+        <Suspense fallback={null}>
         <UserProfileModal
           user={user}
           userRole={userRole}
@@ -2386,6 +2354,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
             setShowDocumentArchiveModal(true);
           }}
         />
+        </Suspense>
       )}
 
       {/* Admin Analytics Dashboard Modal */}
@@ -2429,6 +2398,7 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
       </Suspense>}
 
       {/* 30-Day Web Traffic & Visitor Analytics Modal (Khusus Admin) */}
+      {(showTrafficStatsModal && userRole === 'admin') && <Suspense fallback={null}>
       <TrafficStatsModal
         isOpen={showTrafficStatsModal && userRole === 'admin'}
         onClose={() => setShowTrafficStatsModal(false)}
@@ -2436,8 +2406,10 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
         isAdmin={userRole === 'admin'}
         userRole={userRole}
       />
+      </Suspense>}
 
       {/* Dynamic Price Management Modal (Admin) */}
+      {(showPriceManagementModal) && <Suspense fallback={null}>
       <PriceManagementModal
         categories={categories}
         currentPrices={customPrices}
@@ -2445,8 +2417,10 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
         onClose={() => setShowPriceManagementModal(false)}
         onSavePrices={handleSaveCustomPrices}
       />
+      </Suspense>}
 
       {/* User Document & Work History Archive Modal */}
+      {(showDocumentArchiveModal) && <Suspense fallback={null}>
       <DocumentArchiveModal
         documents={documents}
         isOpen={showDocumentArchiveModal}
@@ -2454,34 +2428,42 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
         onSaveDocument={handleSaveDocument}
         onDeleteDocument={handleDeleteDocument}
       />
+      </Suspense>}
 
       {/* Reward Celebration Modal (When 3rd purchase completed) */}
+      {(showRewardCelebration) && <Suspense fallback={null}>
       <RewardCelebrationModal
         isOpen={showRewardCelebration}
         totalFreeEarned={loyalty.totalFreeEarned}
         onClose={() => setShowRewardCelebration(false)}
       />
+      </Suspense>}
 
       {/* Manual QRIS & Bank Account Settings Modal */}
       {showSettingsModal && (
+        <Suspense fallback={null}>
         <ManualQrisSettingsModal
           config={paymentConfig}
           onClose={() => setShowSettingsModal(false)}
           onSaveConfig={handleSavePaymentConfig}
         />
+        </Suspense>
       )}
 
       {/* Admin Role Management Modal */}
       {showRoleManagementModal && (
+        <Suspense fallback={null}>
         <RoleManagementModal
           currentConfig={rolesConfig}
           currentUserEmail={user?.email}
           onClose={() => setShowRoleManagementModal(false)}
           onSaveConfig={handleSaveRolesConfig}
         />
+        </Suspense>
       )}
 
       {/* Top Up Saldo Akun Modal */}
+      {(showTopUpModal) && <Suspense fallback={null}>
       <TopUpModal
         isOpen={showTopUpModal}
         onClose={() => {
@@ -2497,14 +2479,17 @@ function AcademicHubMainApp({ onNavigateToPath }: { onNavigateToPath?: (path: st
         }}
         onOpenLogin={() => setIsGuest(false)}
       />
+      </Suspense>}
 
       {/* Admin PIN & Custom Auth Modal */}
       {showPinLoginModal && (
+        <Suspense fallback={null}>
         <AdminPinModal
           rolesConfig={rolesConfig}
           onClose={() => setShowPinLoginModal(false)}
           onSuccessLogin={handleCustomLogin}
         />
+        </Suspense>
       )}
 
       {/* Makalah Batch Word Upload Modal (AI Auto-Extraction & Generation) - Admin Only */}

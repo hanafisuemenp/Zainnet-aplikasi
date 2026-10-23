@@ -322,7 +322,9 @@ export function calculateLayout(
     const fitRows = Math.floor(
       (printableHeightCm + rowSpacingCm) / (effectiveCellHeightCm + rowSpacingCm)
     );
-    const rowsPerPage = Math.max(1, fitRows);
+    const rowsPerPage = (config.customRows && config.customRows > 0)
+      ? config.customRows
+      : Math.max(1, fitRows);
 
     for (let r = 0; r < rowsPerPage; r++) {
       resolvedRows.push({

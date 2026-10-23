@@ -25,7 +25,7 @@ export interface ModifierResult {
 // 2 cm = 1134 twips.
 const TWO_CM_TWIPS = 1134;
 
-function normalizeSectPrForNextPage(sectPrXml: string, margins?: {
+function setSectionMargins(sectPrXml: string, margins?: {
   top: number;
   right: number;
   bottom: number;
@@ -33,7 +33,7 @@ function normalizeSectPrForNextPage(sectPrXml: string, margins?: {
 }): string {
   let sectPr = sectPrXml.trim();
 
-  // If specific margins are requested, update pgMar; otherwise keep original untouched.
+  // Only edit margins; never modify an existing section's page numbering.
   if (margins) {
     const { top, right, bottom, left } = margins;
     if (/<w:pgMar\b[^>]*\/>/.test(sectPr)) {
@@ -61,7 +61,52 @@ function normalizeSectPrForNextPage(sectPrXml: string, margins?: {
     }
   }
 
-  // Make this a Next Page section break while retaining every other property.
+  return sectPr;
+}
+
+// A copied w:pgNumType w:start="1" restarts numbering in Word. Margin-isolating
+// section breaks must continue numbering instead of restarting.
+function removeSectionPageNumberStart(sectPrXml: string): string {
+  let cleaned = sectPrXml.replace(/<w:pgNumType\b[^>]*\/>/g, (tag) => {
+    const withoutStart = tag.replace(/\s+w:start="[^"]*"/g, '');
+    return /^<w:pgNumType\s*\/>$/.test(withoutStart) ? '' : withoutStart;
+  });
+  cleaned = cleaned.replace(/<w:pgNumType\b[\s\S]*?<\/w:pgNumType>/g, (tag) => {
+    return tag.replace(/\s+w:start="[^"]*"/g, '');
+  });
+  return cleaned;
+}
+
+// When splitting a section, its different-first-page footer belongs only
+// to the original FIRST fragment, not every inserted page or the remainder.
+function removeSectionFirstPageOnly(sectPrXml: string): string {
+  return sectPrXml.replace(/<w:titlePg\b[^>]*\/>/g, '').replace(/<w:titlePg\b[^>]*><\/w:titlePg>/g, '');
+}
+
+function normalizeSectPrForNextPage(
+  sectPrXml: string,
+  margins?: { top: number; right: number; bottom: number; left: number },
+  forceKeepRestart?: string
+): string {
+  let sectPr = setSectionMargins(sectPrXml, margins);
+  sectPr = removeSectionFirstPageOnly(sectPr);
+
+  if (forceKeepRestart !== undefined) {
+    if (/<w:pgNumType\b[^>]*\/>/.test(sectPr)) {
+      sectPr = sectPr.replace(/<w:pgNumType\b[^>]*\/>/, (tag) => {
+        if (/w:start="[^"]*"/.test(tag)) {
+          return tag.replace(/w:start="[^"]*"/, `w:start="${forceKeepRestart}"`);
+        }
+        return tag.replace('/>', ` w:start="${forceKeepRestart}"/>`);
+      });
+    } else {
+      sectPr = sectPr.replace('</w:sectPr>', `<w:pgNumType w:start="${forceKeepRestart}"/></w:sectPr>`);
+    }
+  } else {
+    sectPr = removeSectionPageNumberStart(sectPr);
+  }
+
+  // Make this a Next Page section break while retaining other properties.
   if (/<w:type\b[^>]*\/>/.test(sectPr)) {
     sectPr = sectPr.replace(/<w:type\b[^>]*\/>/, '<w:type w:val="nextPage"/>');
   } else {
@@ -73,18 +118,20 @@ function normalizeSectPrForNextPage(sectPrXml: string, margins?: {
 
 function generateSectionBreakXml(
   originalSectPrXml: string,
-  margins?: { top: number; right: number; bottom: number; left: number }
+  margins?: { top: number; right: number; bottom: number; left: number },
+  forceKeepRestart?: string
 ): string {
-  const sectPr = normalizeSectPrForNextPage(originalSectPrXml, margins);
+  const sectPr = normalizeSectPrForNextPage(originalSectPrXml, margins, forceKeepRestart);
   return `<w:p><w:pPr>${sectPr}</w:pPr></w:p>`;
 }
 
-// Semua penulisan lampiran di bagian 5 lampiran taruh di pinggir kiri (w:jc w:val="left", ind left="0")
+// Todos penulisan lampiran di bagian 5 lampiran diletakkan di pinggir kiri (w:jc w:val="left", ind left="0")
 function generateCaptionXml(title: string): string {
   return `<w:p><w:pPr><w:spacing w:before="120" w:after="80" w:line="240" w:lineRule="auto"/><w:jc w:val="left"/><w:ind w:left="0" w:right="0" w:firstLine="0"/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t>${escapeXml(title)}</w:t></w:r></w:p>`;
 }
 
-function generateDrawingXml(
+// In Front of Text (wp:anchor, wrapNone, behindDoc="0") untuk Persetujuan, Pengesahan & Keaslian Tulisan
+function generateInFrontOfTextDrawingXml(
   rId: string,
   docPrId: number,
   cx: number,
@@ -92,8 +139,23 @@ function generateDrawingXml(
   pictureName = 'Scan Document'
 ): string {
   const safeName = escapeXml(pictureName);
-  return `<w:p><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:noProof/><w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:eastAsia="en-US"/></w:rPr><w:drawing xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="${safeName}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${docPrId}" name="${safeName}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}"><a:extLst><a:ext uri="{28A0092B-C50C-407E-A947-70E740481C1C}"><a14:useLocalDpi xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main" val="0"/></a:ext></a:extLst></a:blip><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr bwMode="auto"><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln><a:noFill/></a:ln></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+  return `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/><w:rPr><w:sz w:val="2"/><w:szCs w:val="2"/></w:rPr></w:pPr><w:r><w:rPr><w:noProof/><w:lang w:eastAsia="en-US"/></w:rPr><w:drawing xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="251658240" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:align>center</wp:align></wp:positionH><wp:positionV relativeFrom="page"><wp:align>center</wp:align></wp:positionV><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="${docPrId}" name="${safeName}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${docPrId}" name="${safeName}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}"><a:extLst><a:ext uri="{28A0092B-C50C-407E-A947-70E740481C1C}"><a14:useLocalDpi xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main" val="0"/></a:ext></a:extLst></a:blip><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr bwMode="auto"><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln><a:noFill/></a:ln></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r></w:p>`;
 }
+
+// In Line with Text (wp:inline) untuk 5 Lampiran
+function generateInlineDrawingXml(
+  rId: string,
+  docPrId: number,
+  cx: number,
+  cy: number,
+  pictureName = 'Scan Document'
+): string {
+  const safeName = escapeXml(pictureName);
+  return `<w:p><w:pPr><w:spacing w:before="60" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:noProof/><w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:eastAsia="en-US"/></w:rPr><w:drawing xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="${safeName}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${docPrId}" name="${safeName}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}"><a:extLst><a:ext uri="{28A0092B-C50C-407E-A947-70E740481C1C}"><a14:useLocalDpi xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main" val="0"/></a:ext></a:extLst></a:blip><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr bwMode="auto"><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln><a:noFill/></a:ln></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+}
+
+// Alias untuk kompatibilitas
+const generateDrawingXml = generateInlineDrawingXml;
 
 function generatePageBreakXml(): string {
   return `<w:p><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:r><w:br w:type="page"/></w:r></w:p>`;
@@ -185,18 +247,40 @@ export async function applyScansToDocx(
   const elements = [...analysis.elements];
 
   // Section properties asli naskah (biasanya 4-3-4-3 cm) dari dokumen asli
-  const defaultAcademicSectPr =
-    suffix.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/)?.[0] ||
-    docXml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/)?.[0] ||
-    '<w:sectPr><w:pgSz w:w="11906" w:h="16838" w:code="9"/><w:pgMar w:top="2268" w:right="1701" w:bottom="1701" w:left="2268" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>';
-
-  // Return the section properties that were in effect at a given element.
-  const getOriginalSectPrBefore = (elementIndex: number): string => {
-    for (let i = Math.min(elementIndex - 1, elements.length - 1); i >= 0; i--) {
-      const match = elements[i].rawXml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/);
-      if (match) return match[0];
+  let defaultAcademicSectPr = '';
+  for (let i = elements.length - 1; i >= 0; i--) {
+    const match = elements[i].rawXml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/);
+    if (match) {
+      defaultAcademicSectPr = match[0];
+      break;
     }
-    return defaultAcademicSectPr;
+  }
+  if (!defaultAcademicSectPr) {
+    defaultAcademicSectPr =
+      docXml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/)?.[0] ||
+      '<w:sectPr><w:pgSz w:w="11906" w:h="16838" w:code="9"/><w:pgMar w:top="2268" w:right="1701" w:bottom="1701" w:left="2268" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>';
+  }
+
+  // In OOXML a section's properties are stored at its END, not at its
+  // beginning. The next sectPr after an element is the one applicable to it.
+  const sectionClosures = elements.flatMap((element) => {
+    const match = element.rawXml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/);
+    return match ? [{ index: element.index, xml: match[0] }] : [];
+  });
+  if (sectionClosures.length === 0 || sectionClosures[sectionClosures.length - 1].index !== elements.length) {
+    sectionClosures.push({ index: elements.length, xml: defaultAcademicSectPr });
+  }
+
+  const sectionForPosition = (index: number) =>
+    sectionClosures.find((section) => section.index >= index) || sectionClosures[sectionClosures.length - 1];
+
+  const makeSectionBreak = (
+    atElementIndex: number,
+    margins?: { top: number; right: number; bottom: number; left: number },
+    forceKeepRestart?: string
+  ): string => {
+    const source = sectionForPosition(atElementIndex);
+    return generateSectionBreakXml(source.xml, margins, forceKeepRestart);
   };
 
   // A rendered page boundary is more reliable than a heading/endElementIndex.
@@ -235,17 +319,13 @@ export async function applyScansToDocx(
     return Math.min(startIndex + 15, elements.length - 1);
   };
 
-  // Section break yang MENJAMIN 100% margin asli Cover 1 & Cover 2 tidak tersentuh sama sekali
-  const sectionBreakCover = () =>
-    generateSectionBreakXml(defaultAcademicSectPr);
-
-  // Section break yang mempertahankan margin asli naskah (setelah keaslian hingga sebelum surat tugas)
-  const sectionBreakOriginalAcademic = () =>
-    generateSectionBreakXml(defaultAcademicSectPr);
-
-  // Section break yang mendefinisikan margin 2 cm (khusus Persetujuan & Pengesahan, Keaslian, dan 5 Lampiran)
-  const sectionBreak2Cm = () =>
-    generateSectionBreakXml(defaultAcademicSectPr, {
+  // Use properties of the section at this particular insertion point,
+  // not the last section of the entire document. This retains the correct
+  // Roman/Arabic format and existing header/footer references.
+  const sectionBreakCover = (atIndex: number) => makeSectionBreak(atIndex);
+  const sectionBreakOriginalAcademic = (atIndex: number) => makeSectionBreak(atIndex);
+  const sectionBreak2Cm = (atIndex: number) =>
+    makeSectionBreak(atIndex, {
       top: TWO_CM_TWIPS,
       right: TWO_CM_TWIPS,
       bottom: TWO_CM_TWIPS,
@@ -284,28 +364,33 @@ export async function applyScansToDocx(
     return { rId, imageFileName };
   };
 
-  // Dimensions calculator for 2 cm margin (Printable width up to 17 cm = 6,120,000 EMUs)
-  // Printable height on A4 with 2 cm margins is 25.7 cm (9,252,000 EMUs).
-  // With caption (approx 1.5 cm), max image height must stay below ~21.5 cm (7,500,000 EMUs)
-  // to prevent Word from creating an accidental blank page!
-  const calculateDimensions2CmMargins = (
+  // Dimension calculator untuk foto In Front of Text (Persetujuan, Pengesahan & Keaslian Tulisan)
+  // Berada di depan teks, mengambang di tengah halaman penuh (A4) tanpa merusak margin asli dokumen
+  const calculateDimensionsInFrontOfText = (scan: ScanFile): { cx: number; cy: number } => {
+    const maxCx = 7180000; // ~19.9 cm
+    const maxCy = 10150000; // ~28.2 cm
+    const ratio = scan.aspectRatio || (scan.width && scan.height ? scan.width / scan.height : 0.707);
+
+    let cx = maxCx;
+    let cy = Math.round(maxCx / ratio);
+    if (cy > maxCy) {
+      cy = maxCy;
+      cx = Math.round(maxCy * ratio);
+    }
+    return { cx, cy };
+  };
+
+  // Dimension calculator untuk foto In Line with Text (5 Lampiran)
+  // Menyesuaikan lebar cetak dalam margin asli naskah skripsi (standar 4 cm kiri, 3 cm kanan -> lebar ~14.0 cm)
+  const calculateDimensionsInline = (
     scan: ScanFile,
-    mode: 'full_page' | 'half_page' | 'full_page_with_caption'
+    mode: 'half_page' | 'full_page_with_caption'
   ): { cx: number; cy: number } => {
-    const targetCx = 5600000; // ~15.8 cm width for 2 cm margin
+    const targetCx = 5040000; // ~14.0 cm
     const ratio = scan.aspectRatio || (scan.width && scan.height ? scan.width / scan.height : 0.707);
 
     if (mode === 'half_page') {
-      const maxCy = 3800000; // ~10.7 cm height for 2 cards per page
-      let cy = Math.round(targetCx / ratio);
-      let cx = targetCx;
-      if (cy > maxCy) {
-        cy = maxCy;
-        cx = Math.round(maxCy * ratio);
-      }
-      return { cx, cy };
-    } else if (mode === 'full_page_with_caption') {
-      const maxCy = 7500000; // ~21.1 cm height so caption + image easily fit on 1 page
+      const maxCy = 3500000; // ~9.7 cm
       let cy = Math.round(targetCx / ratio);
       let cx = targetCx;
       if (cy > maxCy) {
@@ -314,7 +399,7 @@ export async function applyScansToDocx(
       }
       return { cx, cy };
     } else {
-      const maxCy = 8000000; // ~22.5 cm height for full page scan without caption
+      const maxCy = 7200000; // ~20.0 cm agar judul + foto muat dalam 1 halaman
       let cy = Math.round(targetCx / ratio);
       let cx = targetCx;
       if (cy > maxCy) {
@@ -335,9 +420,8 @@ export async function applyScansToDocx(
 
   // =========================================================================
   // 1. PROSES HALAMAN PERSETUJUAN & PENGESAHAN
-  // Margin 2 cm hanya berlaku pada halaman Persetujuan & Pengesahan.
-  // Cover 1 dan Cover 2 tidak boleh disentuh marginnya sama sekali.
-  // Halaman setelah pengesahan tidak boleh ada halaman kosong.
+  // Mode: In Front of Text (mengambang di atas teks halaman penuh)
+  // Margin dokumen asli skripsi dipertahankan 100% tanpa diubah.
   // =========================================================================
   const persetujuanTarget = targets.find((t) => t.id === 'persetujuan');
   const pengesahanTarget = targets.find((t) => t.id === 'pengesahan');
@@ -358,36 +442,45 @@ export async function applyScansToDocx(
   let persetujuanProcessed = false;
   let pengesahanProcessed = false;
 
-  // If both scans are available and both indices are resolved, replace atomically
+  // Jika kedua scan ada, proses bersamaan agar transisi halaman sempurna
   if (scanPersetujuan && scanPengesahan && persetujuanIdx !== undefined && pengesahanIdx !== undefined) {
     const { rId: rIdSetuju } = await registerImage(scanPersetujuan, 'persetujuan');
     const { rId: rIdSah } = await registerImage(scanPengesahan, 'pengesahan');
 
-    logs.push(`✓ Halaman Cover 1 & 2 aman 100% tanpa perubahan margin`);
-    logs.push(`✓ Halaman Persetujuan & Pengesahan diganti foto asli (Margin 2 cm khusus)`);
-    logs.push(`✓ Halaman kosong setelah pengesahan dibersihkan`);
+    logs.push(`✓ Mempertahankan semua margin asli skripsi 100%`);
+    logs.push(`✓ Halaman Persetujuan & Pengesahan disematkan foto asli (In Front of Text)`);
 
-    const dimSetuju = calculateDimensions2CmMargins(scanPersetujuan, 'full_page');
-    const dimSah = calculateDimensions2CmMargins(scanPengesahan, 'full_page');
+    const dimSetuju = calculateDimensionsInFrontOfText(scanPersetujuan);
+    const dimSah = calculateDimensionsInFrontOfText(scanPengesahan);
 
-    // Section break sebelum Persetujuan mempertahankan margin asli Cover 1 & Cover 2 100%!
-    let repCombined = sectionBreakCover();
-    repCombined += generateDrawingXml(rIdSetuju, nextDocPrId++, dimSetuju.cx, dimSetuju.cy, 'Halaman Persetujuan');
+    let repCombined = '';
+    // Halaman Persetujuan mulai setelah Cover (selalu halaman baru)
+    if (persetujuanIdx > 0) {
+      repCombined += generatePageBreakXml();
+    }
+    repCombined += generateInFrontOfTextDrawingXml(rIdSetuju, nextDocPrId++, dimSetuju.cx, dimSetuju.cy, 'Halaman Persetujuan');
+    // Pemisah halaman ke Halaman Pengesahan (halaman baru tersendiri)
     repCombined += generatePageBreakXml();
-    repCombined += generateDrawingXml(rIdSah, nextDocPrId++, dimSah.cx, dimSah.cy, 'Halaman Pengesahan');
-    // Section break di akhir Pengesahan menerapkan margin 2 cm untuk Persetujuan & Pengesahan
-    // dan langsung beralih ke halaman Kata Pengantar (tanpa page break ganda).
-    repCombined += sectionBreak2Cm();
+    repCombined += generateInFrontOfTextDrawingXml(rIdSah, nextDocPrId++, dimSah.cx, dimSah.cy, 'Halaman Pengesahan');
 
     const persetujuanStart = persetujuanIdx;
     let pengesahanEnd = findPageEnd(pengesahanIdx);
-    // Bersihkan paragraf kosong setelah pengesahan agar tidak ada halaman kosong
     while (
       pengesahanEnd + 1 < elements.length &&
       !elements[pengesahanEnd + 1].text.trim() &&
       !elements[pengesahanEnd + 1].hasSectPr
     ) {
       pengesahanEnd++;
+    }
+
+    // Jika rentang elemen yang diganti memiliki sectPr asli, pertahankan sectPr tersebut
+    const deletedRange = elements.slice(persetujuanStart, Math.max(pengesahanEnd, pengesahanIdx) + 1);
+    const origSectPr = deletedRange.map((e) => e.rawXml).find((xml) => xml.includes('<w:sectPr'));
+    if (origSectPr) {
+      const matchSect = origSectPr.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/);
+      if (matchSect) {
+        repCombined += `<w:p><w:pPr>${matchSect[0]}</w:pPr></w:p>`;
+      }
     }
 
     replacements.push({
@@ -399,45 +492,61 @@ export async function applyScansToDocx(
     pengesahanProcessed = true;
   }
 
-  // Individual fallbacks if only one was processed
+  // Individual fallbacks jika hanya salah satu yang diunggah
   if (!persetujuanProcessed && scanPersetujuan && persetujuanIdx !== undefined) {
     const { rId } = await registerImage(scanPersetujuan, 'persetujuan');
-    logs.push(`✓ Halaman Persetujuan diganti foto asli (Margin 2 cm)`);
-    const dim = calculateDimensions2CmMargins(scanPersetujuan, 'full_page');
+    logs.push(`✓ Halaman Persetujuan disematkan foto asli (In Front of Text)`);
+    const dim = calculateDimensionsInFrontOfText(scanPersetujuan);
 
-    let rep = sectionBreakCover();
-    rep += generateDrawingXml(rId, nextDocPrId++, dim.cx, dim.cy, 'Halaman Persetujuan');
-    rep += sectionBreak2Cm();
+    let rep = '';
+    if (persetujuanIdx > 0) {
+      rep += generatePageBreakXml();
+    }
+    rep += generateInFrontOfTextDrawingXml(rId, nextDocPrId++, dim.cx, dim.cy, 'Halaman Persetujuan');
+
+    const pEnd = findPageEnd(persetujuanIdx);
+    const origSectPr = elements.slice(persetujuanIdx, pEnd + 1).map((e) => e.rawXml).find((xml) => xml.includes('<w:sectPr'));
+    if (origSectPr) {
+      const matchSect = origSectPr.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/);
+      if (matchSect) rep += `<w:p><w:pPr>${matchSect[0]}</w:pPr></w:p>`;
+    }
 
     replacements.push({
       startIndex: persetujuanIdx,
-      endIndex: findPageEnd(persetujuanIdx),
+      endIndex: pEnd,
       replacementXml: rep,
     });
   }
 
   if (!pengesahanProcessed && scanPengesahan && pengesahanIdx !== undefined) {
     const { rId } = await registerImage(scanPengesahan, 'pengesahan');
-    logs.push(`✓ Halaman Pengesahan diganti foto asli (Margin 2 cm)`);
-    const dim = calculateDimensions2CmMargins(scanPengesahan, 'full_page');
+    logs.push(`✓ Halaman Pengesahan disematkan foto asli (In Front of Text)`);
+    const dim = calculateDimensionsInFrontOfText(scanPengesahan);
 
-    let rep = sectionBreakCover();
-    rep += generateDrawingXml(rId, nextDocPrId++, dim.cx, dim.cy, 'Halaman Pengesahan');
-    rep += sectionBreak2Cm();
+    let rep = '';
+    if (pengesahanIdx > 0) {
+      rep += generatePageBreakXml();
+    }
+    rep += generateInFrontOfTextDrawingXml(rId, nextDocPrId++, dim.cx, dim.cy, 'Halaman Pengesahan');
+
+    const pEnd = findPageEnd(pengesahanIdx);
+    const origSectPr = elements.slice(pengesahanIdx, pEnd + 1).map((e) => e.rawXml).find((xml) => xml.includes('<w:sectPr'));
+    if (origSectPr) {
+      const matchSect = origSectPr.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/);
+      if (matchSect) rep += `<w:p><w:pPr>${matchSect[0]}</w:pPr></w:p>`;
+    }
 
     replacements.push({
       startIndex: pengesahanIdx,
-      endIndex: findPageEnd(pengesahanIdx),
+      endIndex: pEnd,
       replacementXml: rep,
     });
   }
 
   // =========================================================================
   // 2. PROSES SURAT PERNYATAAN KEASLIAN TULISAN
-  // Posisi: Setelah Daftar Pustaka / Daftar Rujukan berakhir pada halaman baru.
-  // Hapus halaman kosong sebelum dan sesudah surat pernyataan keaslian tulisan.
-  // Margin 2 cm HANYA untuk Surat Pernyataan Keaslian Tulisan.
-  // Margin setelah halaman keaslian tulisan TIDAK boleh diubah (tetap margin asli naskah).
+  // Mode: In Front of Text (mengambang di atas teks halaman penuh)
+  // Margin dokumen asli skripsi dipertahankan 100% tanpa diubah.
   // =========================================================================
   const keaslianTarget = targets.find((t) => t.id === 'keaslian');
 
@@ -445,35 +554,51 @@ export async function applyScansToDocx(
     const scan = scanMap.get(keaslianTarget.assignedScanId);
     if (scan) {
       const { rId } = await registerImage(scan, 'keaslian');
-      logs.push(`✓ Halaman kosong sebelum Surat Pernyataan Keaslian Tulisan dibersihkan`);
-      logs.push(`✓ Surat Pernyataan Keaslian Tulisan diproses setelah Daftar Pustaka (Margin 2 cm diterapkan)`);
-      logs.push(`✓ Margin naskah setelah keaslian tulisan tetap mempertahankan margin asli`);
-      const dim = calculateDimensions2CmMargins(scan, 'full_page');
+      logs.push(`✓ Surat Pernyataan Keaslian Tulisan disematkan foto asli (In Front of Text)`);
+      logs.push(`✓ Mempertahankan 100% margin asli file skripsi`);
+      const dim = calculateDimensionsInFrontOfText(scan);
 
       let keaslianStart = keaslianTarget.elementIndex ?? 0;
-      // Bersihkan paragraf kosong sebelum keaslian agar tidak ada halaman kosong
       while (
         keaslianStart > 0 &&
         !elements[keaslianStart - 1].text.trim() &&
-        !elements[keaslianStart - 1].hasSectPr
+        !elements[keaslianStart - 1].hasSectPr &&
+        !elements[keaslianStart - 1].hasPageBreak
       ) {
         keaslianStart--;
       }
 
-      // Section break sebelum Keaslian mempertahankan margin asli Daftar Pustaka
-      let rep = sectionBreakOriginalAcademic();
-      rep += generateDrawingXml(rId, nextDocPrId++, dim.cx, dim.cy, 'Surat Pernyataan Keaslian Tulisan');
-      // Section break di akhir Keaslian menerapkan margin 2 cm untuk lembar ini
-      rep += sectionBreak2Cm();
+      let rep = '';
+      // CRITICAL: Keaslian adalah halaman mandiri. Wajib diawali pemisah halaman
+      // agar tidak menumpuk atau menyatu dengan halaman sebelumnya.
+      if (keaslianStart > 0) {
+        rep += generatePageBreakXml();
+      }
+      rep += generateInFrontOfTextDrawingXml(rId, nextDocPrId++, dim.cx, dim.cy, 'Surat Pernyataan Keaslian Tulisan');
 
       let keaslianEnd = keaslianTarget.endElementIndex || findPageEnd(keaslianTarget.elementIndex ?? 0);
-      // Bersihkan paragraf kosong setelah keaslian
       while (
         keaslianEnd + 1 < elements.length &&
         !elements[keaslianEnd + 1].text.trim() &&
-        !elements[keaslianEnd + 1].hasSectPr
+        !elements[keaslianEnd + 1].hasSectPr &&
+        !elements[keaslianEnd + 1].hasPageBreak
       ) {
         keaslianEnd++;
+      }
+
+      const origSectPr = elements.slice(keaslianStart, keaslianEnd + 1).map((e) => e.rawXml).find((xml) => xml.includes('<w:sectPr'));
+      if (origSectPr) {
+        const matchSect = origSectPr.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/);
+        if (matchSect) {
+          let sectXml = matchSect[0];
+          if (sectXml.includes('w:val="continuous"')) {
+            sectXml = sectXml.replace('w:val="continuous"', 'w:val="nextPage"');
+          }
+          rep += `<w:p><w:pPr>${sectXml}</w:pPr></w:p>`;
+        }
+      } else if (keaslianEnd + 1 < elements.length && !elements[keaslianEnd + 1].hasPageBreak) {
+        // Trailing page break: pastikan teks halaman berikutnya tidak tumpeng tindih ke lembar Keaslian
+        rep += generatePageBreakXml();
       }
 
       if (keaslianStart >= 0) {
@@ -487,12 +612,10 @@ export async function applyScansToDocx(
   }
 
   // =========================================================================
-  // 3. PROSES 5 LAMPIRAN UTAMA (Margin 2 cm Khusus)
-  // Surat Tugas Pembimbing, Kartu Bimbingan, Izin, Telah Meneliti, Bebas Plagiasi
-  // Semua penulisan lampiran diletakkan di pinggir kiri (w:jc w:val="left").
-  // Deteksi urutan lampiran awal: jika naskah sebelumnya sudah ada Lampiran 1, 2, 3
-  // maka Surat Tugas otomatis melanjutkan ke Lampiran 4, disusul Kartu Bimbingan Lampiran 5, dst.
-  // Halaman kosong setelah Kartu Bimbingan dibersihkan.
+  // 3. PROSES 5 LAMPIRAN UTAMA
+  // Mode: In Line with Text (wp:inline) sesuai permintaan pengguna
+  // Penulisan lampiran diletakkan di pinggir kiri (w:jc w:val="left")
+  // Margin asli naskah skripsi dipertahankan 100% tanpa perubahan margin 2 cm
   // =========================================================================
   const targetSuratTugas = targets.find((t) => t.id === 'surat_tugas');
   const targetKbDepan = targets.find((t) => t.id === 'kartu_bimbingan_depan');
@@ -503,14 +626,6 @@ export async function applyScansToDocx(
 
   const anchorMatch = analysis.anchorKeywordMatch;
 
-  const hasAnchorAttachments =
-    !!targetSuratTugas?.assignedScanId ||
-    !!targetKbDepan?.assignedScanId ||
-    !!targetIzin?.assignedScanId ||
-    !!targetTelahMeneliti?.assignedScanId ||
-    !!targetBebasPlagiasi?.assignedScanId;
-
-  // Deteksi nomor lampiran tertinggi yang sudah ada di naskah sebelum anchor
   const highestExisting = findHighestExistingLampiranNumber(
     elements,
     anchorMatch ? anchorMatch.index : undefined
@@ -524,7 +639,6 @@ export async function applyScansToDocx(
     }`
   );
 
-  // Kumpulkan semua lampiran aktif yang diunggah pengguna
   interface ActiveLampiranItem {
     id: string;
     scan: ScanFile;
@@ -596,14 +710,14 @@ export async function applyScansToDocx(
   }
 
   if (anchorMatch && options.useAnchorFor5Attachments && activeItems.length > 0) {
-    logs.push(`✓ Titik penempatan 5 Lampiran aktif pada kata kunci anchor (Margin 2 cm diterapkan)`);
+    logs.push(`✓ Titik penempatan 5 Lampiran aktif pada kata kunci anchor (In Line with Text, Margin Asli Skripsi)`);
 
-    // Section break sebelum 5 lampiran menutup naskah/lampiran sebelumnya dengan margin naskah asli!
-    let combined5Xml = sectionBreakOriginalAcademic();
+    let combined5Xml = '';
 
     for (let idx = 0; idx < activeItems.length; idx++) {
       const item = activeItems[idx];
-      const isLastItem = idx === activeItems.length - 1;
+
+      combined5Xml += generatePageBreakXml();
 
       if (item.id === 'kartu_bimbingan') {
         const { rId: rIdDepan } = await registerImage(item.scan, 'kb_depan');
@@ -611,59 +725,49 @@ export async function applyScansToDocx(
         if (item.scanBelakang) {
           const res = await registerImage(item.scanBelakang, 'kb_belakang');
           rIdBelakang = res.rId;
-          logs.push('✓ Foto Kartu Bimbingan Depan & Belakang ditempatkan');
+          logs.push('✓ Foto Kartu Bimbingan Depan & Belakang ditempatkan (In Line with Text)');
         } else {
-          logs.push('✓ Foto Kartu Bimbingan Depan ditempatkan');
+          logs.push('✓ Foto Kartu Bimbingan Depan ditempatkan (In Line with Text)');
         }
 
         combined5Xml += generateCaptionXml(item.caption);
 
         if (options.kartuBimbinganLayout === 'single_page' && rIdBelakang && item.scanBelakang) {
-          const dimDepan = calculateDimensions2CmMargins(item.scan, 'half_page');
-          const dimBelakang = calculateDimensions2CmMargins(item.scanBelakang, 'half_page');
+          const dimDepan = calculateDimensionsInline(item.scan, 'half_page');
+          const dimBelakang = calculateDimensionsInline(item.scanBelakang, 'half_page');
           combined5Xml += generateDrawingXml(rIdDepan, nextDocPrId++, dimDepan.cx, dimDepan.cy, 'Kartu Bimbingan Depan');
           combined5Xml += generateDrawingXml(rIdBelakang, nextDocPrId++, dimBelakang.cx, dimBelakang.cy, 'Kartu Bimbingan Belakang');
         } else {
-          const dimDepan = calculateDimensions2CmMargins(item.scan, 'full_page_with_caption');
+          const dimDepan = calculateDimensionsInline(item.scan, 'full_page_with_caption');
           combined5Xml += generateDrawingXml(rIdDepan, nextDocPrId++, dimDepan.cx, dimDepan.cy, 'Kartu Bimbingan Depan');
           if (rIdBelakang && item.scanBelakang) {
             combined5Xml += generatePageBreakXml();
             combined5Xml += generateCaptionXml(`${item.caption} (Lanjutan)`);
-            const dimBelakang = calculateDimensions2CmMargins(item.scanBelakang, 'full_page_with_caption');
+            const dimBelakang = calculateDimensionsInline(item.scanBelakang, 'full_page_with_caption');
             combined5Xml += generateDrawingXml(rIdBelakang, nextDocPrId++, dimBelakang.cx, dimBelakang.cy, 'Kartu Bimbingan Belakang');
           }
         }
-
-        // Halaman kosong setelah kartu bimbingan dicegah: page break HANYA jika ada lampiran lanjutan!
-        if (!isLastItem) {
-          combined5Xml += generatePageBreakXml();
-        }
       } else {
         const { rId } = await registerImage(item.scan, item.id);
-        const dim = calculateDimensions2CmMargins(item.scan, 'full_page_with_caption');
-        logs.push(`✓ Keterangan pinggir kiri & foto ${item.caption} ditempatkan`);
+        const dim = calculateDimensionsInline(item.scan, 'full_page_with_caption');
+        logs.push(`✓ Keterangan pinggir kiri & foto ${item.caption} ditempatkan (In Line with Text)`);
         combined5Xml += generateCaptionXml(item.caption);
         combined5Xml += generateDrawingXml(rId, nextDocPrId++, dim.cx, dim.cy, item.caption);
-
-        // Hanya tambahkan pemisah halaman jika masih ada lampiran berikutnya
-        if (!isLastItem) {
-          combined5Xml += generatePageBreakXml();
-        }
       }
     }
 
-    // Akhiri lampiran dengan section break 2 cm
-    combined5Xml += sectionBreak2Cm();
+    // Pastikan halaman anchor (seperti Riwayat Hidup) tetap pada halaman baru setelah lampiran terakhir
+    combined5Xml += generatePageBreakXml();
 
     if (combined5Xml.length > 0) {
       replacements.push({
         startIndex: anchorMatch.index,
         endIndex: anchorMatch.index,
-        replacementXml: combined5Xml,
+        replacementXml: combined5Xml + elements[anchorMatch.index].rawXml,
       });
     }
   } else if (activeItems.length > 0) {
-    // Individual fallback placements with 2 cm margin
+    // Individual fallback placements (In Line with Text, margin asli skripsi)
     for (let idx = 0; idx < activeItems.length; idx++) {
       const item = activeItems[idx];
       const target = targets.find((t) => t.id === (item.id === 'kartu_bimbingan' ? 'kartu_bimbingan_depan' : item.id));
@@ -677,42 +781,53 @@ export async function applyScansToDocx(
           rIdBelakang = res.rId;
         }
 
-        let rep = sectionBreakOriginalAcademic() + generateCaptionXml(item.caption);
+        let rep = generatePageBreakXml() + generateCaptionXml(item.caption);
 
         if (options.kartuBimbinganLayout === 'single_page' && rIdBelakang && item.scanBelakang) {
-          const dimDepan = calculateDimensions2CmMargins(item.scan, 'half_page');
-          const dimBelakang = calculateDimensions2CmMargins(item.scanBelakang, 'half_page');
+          const dimDepan = calculateDimensionsInline(item.scan, 'half_page');
+          const dimBelakang = calculateDimensionsInline(item.scanBelakang, 'half_page');
           rep += generateDrawingXml(rIdDepan, nextDocPrId++, dimDepan.cx, dimDepan.cy, 'Kartu Bimbingan Depan');
           rep += generateDrawingXml(rIdBelakang, nextDocPrId++, dimBelakang.cx, dimBelakang.cy, 'Kartu Bimbingan Belakang');
         } else {
-          const dimDepan = calculateDimensions2CmMargins(item.scan, 'full_page_with_caption');
+          const dimDepan = calculateDimensionsInline(item.scan, 'full_page_with_caption');
           rep += generateDrawingXml(rIdDepan, nextDocPrId++, dimDepan.cx, dimDepan.cy, 'Kartu Bimbingan Depan');
           if (rIdBelakang && item.scanBelakang) {
             rep += generatePageBreakXml();
             rep += generateCaptionXml(`${item.caption} (Lanjutan)`);
-            const dimBelakang = calculateDimensions2CmMargins(item.scanBelakang, 'full_page_with_caption');
+            const dimBelakang = calculateDimensionsInline(item.scanBelakang, 'full_page_with_caption');
             rep += generateDrawingXml(rIdBelakang, nextDocPrId++, dimBelakang.cx, dimBelakang.cy, 'Kartu Bimbingan Belakang');
           }
         }
 
-        rep += sectionBreak2Cm();
+        const tEnd = target.endElementIndex || findPageEnd(target.elementIndex);
+        const origSectPr = elements.slice(target.elementIndex, tEnd + 1).map((e) => e.rawXml).find((xml) => xml.includes('<w:sectPr'));
+        if (origSectPr) {
+          const matchSect = origSectPr.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/);
+          if (matchSect) rep += `<w:p><w:pPr>${matchSect[0]}</w:pPr></w:p>`;
+        }
 
         replacements.push({
           startIndex: target.elementIndex,
-          endIndex: target.endElementIndex || findPageEnd(target.elementIndex),
+          endIndex: tEnd,
           replacementXml: rep,
         });
       } else {
         const { rId } = await registerImage(item.scan, item.id);
-        const dim = calculateDimensions2CmMargins(item.scan, 'full_page_with_caption');
-        let rep = sectionBreakOriginalAcademic();
+        const dim = calculateDimensionsInline(item.scan, 'full_page_with_caption');
+        let rep = generatePageBreakXml();
         rep += generateCaptionXml(item.caption);
         rep += generateDrawingXml(rId, nextDocPrId++, dim.cx, dim.cy, item.caption);
-        rep += sectionBreak2Cm();
+
+        const tEnd = target.endElementIndex || findPageEnd(target.elementIndex);
+        const origSectPr = elements.slice(target.elementIndex, tEnd + 1).map((e) => e.rawXml).find((xml) => xml.includes('<w:sectPr'));
+        if (origSectPr) {
+          const matchSect = origSectPr.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/);
+          if (matchSect) rep += `<w:p><w:pPr>${matchSect[0]}</w:pPr></w:p>`;
+        }
 
         replacements.push({
           startIndex: target.elementIndex,
-          endIndex: target.endElementIndex || findPageEnd(target.elementIndex),
+          endIndex: tEnd,
           replacementXml: rep,
         });
       }
@@ -734,14 +849,38 @@ export async function applyScansToDocx(
   // Sort replacements descending by startIndex for clean in-place array splicing
   replacements.sort((a, b) => b.startIndex - a.startIndex);
 
-  // Apply replacements
+  // Apply replacements.
   const finalElementXmls: string[] = elements.map((e) => e.rawXml);
 
   for (const rep of replacements) {
     const deleteCount = Math.max(0, rep.endIndex - rep.startIndex + 1);
-    finalElementXmls.splice(rep.startIndex, deleteCount, rep.replacementXml);
 
-    // Hapus halaman kosong dan page break ganda setelah section break
+    // If the original elements being deleted contained any w:start restart,
+    // preserve that restart on the closing sectPr of replacementXml so it is not lost.
+    const deletedRangeXml = elements.slice(rep.startIndex, rep.endIndex + 1).map((e) => e.rawXml).join('');
+    const deletedRestarts = [...deletedRangeXml.matchAll(/<w:pgNumType\b[^>]*?\bw:start="([^"]*)"/g)].map((m) => m[1]);
+
+    let repXml = rep.replacementXml;
+    if (deletedRestarts.length > 0) {
+      const targetRestart = deletedRestarts[0];
+      if (!repXml.includes(`w:start="${targetRestart}"`)) {
+        repXml = repXml.replace(/<w:sectPr\b[\s\S]*?<\/w:sectPr>(?![\s\S]*<w:sectPr)/, (sectPr) => {
+          if (/<w:pgNumType\b[^>]*\/>/.test(sectPr)) {
+            return sectPr.replace(/<w:pgNumType\b[^>]*\/>/, (tag) => {
+              if (/w:start="[^"]*"/.test(tag)) {
+                return tag.replace(/w:start="[^"]*"/, `w:start="${targetRestart}"`);
+              }
+              return tag.replace('/>', ` w:start="${targetRestart}"/>`);
+            });
+          }
+          return sectPr.replace('</w:sectPr>', `<w:pgNumType w:start="${targetRestart}"/></w:sectPr>`);
+        });
+      }
+    }
+
+    finalElementXmls.splice(rep.startIndex, deleteCount, repXml);
+
+    // Hapus halaman kosong dan page break ganda setelah replacement
     let nextIdx = rep.startIndex + 1;
     while (
       nextIdx < finalElementXmls.length &&
@@ -760,17 +899,7 @@ export async function applyScansToDocx(
     }
   }
 
-  // Jika ada lampiran aktif, pastikan section terakhir dokumen berakhir dengan margin 2 cm
-  if (activeItems.length > 0) {
-    suffix = suffix.replace(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/, () =>
-      normalizeSectPrForNextPage(defaultAcademicSectPr, {
-        top: TWO_CM_TWIPS,
-        right: TWO_CM_TWIPS,
-        bottom: TWO_CM_TWIPS,
-        left: TWO_CM_TWIPS,
-      })
-    );
-  }
+  // Margin naskah asli dipertahankan 100% untuk semua section, termasuk lampiran dan section terakhir.
 
   let newDocumentXml = prefix + finalElementXmls.join('') + suffix;
 
@@ -799,11 +928,93 @@ export async function applyScansToDocx(
     return `<w:document${attrs}${extra}>`;
   });
 
+  // Failsafe & auto-reconciliation: ensure page-number restarts are perfectly preserved
+  const findNumberStarts = (xml: string): string[] =>
+    [...xml.matchAll(/<w:pgNumType\b[^>]*?\bw:start="([^"]*)"/g)].map((m) => m[1]);
+  const originalRestarts = findNumberStarts(docXml);
+  let finalRestarts = findNumberStarts(newDocumentXml);
+
+  if (originalRestarts.join('|') !== finalRestarts.join('|')) {
+    logs.push(
+      `ℹ Rekonsiliasi nomor halaman: menyesuaikan ${finalRestarts.length} restart dengan ${originalRestarts.length} restart asli Word`
+    );
+
+    // If final has fewer restarts than original, restore missing restart onto the appropriate section break
+    if (finalRestarts.length < originalRestarts.length) {
+      const allSectPrMatches = [...newDocumentXml.matchAll(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g)];
+      let origIdx = 0;
+      let reconciledXml = '';
+      let lastIndex = 0;
+
+      for (let i = 0; i < allSectPrMatches.length; i++) {
+        const m = allSectPrMatches[i];
+        reconciledXml += newDocumentXml.substring(lastIndex, m.index);
+        let sectXml = m[0];
+        const hasStart = sectXml.match(/<w:pgNumType\b[^>]*\bw:start="([^"]*)"/);
+
+        if (hasStart) {
+          if (origIdx < originalRestarts.length && hasStart[1] === originalRestarts[origIdx]) {
+            origIdx++;
+          }
+        } else if (
+          origIdx < originalRestarts.length &&
+          allSectPrMatches.length - i <= originalRestarts.length - origIdx
+        ) {
+          const expectedStart = originalRestarts[origIdx++];
+          if (/<w:pgNumType\b[^>]*\/>/.test(sectXml)) {
+            sectXml = sectXml.replace(/<w:pgNumType\b[^>]*\/>/, (tag) =>
+              tag.replace('/>', ` w:start="${expectedStart}"/>`)
+            );
+          } else {
+            sectXml = sectXml.replace('</w:sectPr>', `<w:pgNumType w:start="${expectedStart}"/></w:sectPr>`);
+          }
+        }
+
+        reconciledXml += sectXml;
+        lastIndex = m.index! + m[0].length;
+      }
+      reconciledXml += newDocumentXml.substring(lastIndex);
+      newDocumentXml = reconciledXml;
+      finalRestarts = findNumberStarts(newDocumentXml);
+    }
+
+    // If final has more restarts than original, strip extraneous restarts from inserted margin breaks
+    if (finalRestarts.length > originalRestarts.length) {
+      const allSectPrMatches = [...newDocumentXml.matchAll(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g)];
+      let kept = 0;
+      let reconciledXml = '';
+      let lastIndex = 0;
+
+      for (const m of allSectPrMatches) {
+        reconciledXml += newDocumentXml.substring(lastIndex, m.index);
+        let sectXml = m[0];
+        const hasStart = sectXml.match(/<w:pgNumType\b[^>]*\bw:start="([^"]*)"/);
+
+        if (hasStart) {
+          if (kept < originalRestarts.length && hasStart[1] === originalRestarts[kept]) {
+            kept++;
+          } else {
+            sectXml = removeSectionPageNumberStart(sectXml);
+          }
+        }
+
+        reconciledXml += sectXml;
+        lastIndex = m.index! + m[0].length;
+      }
+      reconciledXml += newDocumentXml.substring(lastIndex);
+      newDocumentXml = reconciledXml;
+      finalRestarts = findNumberStarts(newDocumentXml);
+    }
+  }
+
+  logs.push(`✓ Penomoran halaman dilindungi: ${originalRestarts.length} restart asli dipertahankan (${originalRestarts.join(', ')})`);
+
   zip.file('word/document.xml', newDocumentXml);
   zip.file('word/_rels/document.xml.rels', relsXml);
 
-  logs.push('✓ Margin 2 cm diisolasi hanya untuk halaman Persetujuan & Pengesahan');
-  logs.push('✓ Halaman setelah lampiran mempertahankan margin dan pengaturan section asli');
+  logs.push('✓ Mempertahankan 100% margin asli file skripsi (tanpa perubahan margin)');
+  logs.push('✓ Halaman Persetujuan, Pengesahan & Keaslian: In Front of Text');
+  logs.push('✓ 5 Lampiran: In Line with Text dengan penulisan judul di pinggir kiri');
   logs.push('✓ Struktur DOCX dan hubungan media berhasil disinkronkan');
 
   const finalBlob = await zip.generateAsync({

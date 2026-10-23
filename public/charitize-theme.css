@@ -68,3 +68,8 @@ body { margin:0; background:var(--char-cream); }
 .charitize-services [id^='tool-card-'] button[class*='bg-blue-'],
 .charitize-services [id^='tool-card-'] button[class*='bg-indigo-'] { background:var(--char-green) !important; color:#fff !important; }
 .charitize-services [id^='tool-card-'] button[class*='from-indigo-'] { background:var(--char-amber) !important; color:var(--char-ink) !important; }
+
+.zain-first-paint { min-height:100vh; background:#fdf8ea; color:#1a685b; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:8px; padding:20px; font-family:Arial,sans-serif; }
+.zain-first-paint__brand { font-weight:900; font-size:32px; letter-spacing:.04em; }
+.zain-first-paint__title { color:#051311; font-size:18px; font-weight:700; }
+.zain-first-paint p { margin:0; color:#586a63; font-size:13px; }

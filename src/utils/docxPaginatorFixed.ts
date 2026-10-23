@@ -4,6 +4,7 @@ import {
   findTocKeywordParagraphIndex,
   hasArabicScript,
   isArabicTocHeadingKeyword,
+  isCoverHeadingOrContent,
   isProposalDocument,
   normalizeArabicKey,
   processDocumentTocWorkflow,
@@ -82,7 +83,11 @@ function children(parent: Element, name: string): Element[] {
 }
 function parseXml(xml: string): Document {
   const d = parser().parseFromString(xml, 'application/xml');
-  if (d.getElementsByTagName('parsererror').length) throw new Error('XML Word tidak valid.');
+  const errs = d.getElementsByTagName('parsererror');
+  if (errs.length) {
+    const detail = (errs[0].textContent || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+    throw new Error(`XML Word tidak valid: ${detail || 'Kesalahan struktur XML.'}`);
+  }
   return d;
 }
 
@@ -714,64 +719,94 @@ export function findProposalJudulIndex(paragraphs: Element[]): number {
 }
 
 function isFrontMatterHeading(text: string): boolean {
+  if (isCoverHeadingOrContent(text)) return false;
   const t = normalize(text);
   const arabKey = normalizeArabicKey(text).replace(/^[^\u0600-\u06FFA-Z0-9]+/, '');
   if (
     isArabicTocHeadingKeyword(text) ||
-    /^(صفحه العنوان|صفحه الغلاف|صفحه الموافقه|موافقه المشرف|مذكره المشرف|صفحه الاعتماد|اعتماد لجنه المناقشه|اقرار الطالب|اقرار الاصاله|شعار|الشعار|الاهداء|ملخص البحث|الملخص|مستخلص البحث|المستخلص|كلمه الشكر|تقدير وشكر|شكر وتقدير|تمهيد|مقدمه|فهرس المحتويات|فهرس الموضوعات|قائمه المحتويات|قائمه الموضوعات|الفهرس|المحتويات|قائمه الجداول|فهرس الجداول|قائمه الاشكال|فهرس الاشكال|قائمه الملاحق|فهرس الملاحق|قائمه الرموز|قائمه الاختصارات)\b/.test(arabKey)
+    /^(صفحه\s+الموافقه|موافقه\s+المشرف|مذكره\s+المشرف|صفحه\s+الاعتماد|اعتماد\s+لجنه\s+المناقشه|اقرار\s+الطالب|اقرار\s+الاصاله|الاهداء|ملخص\s+البحث|الملخص|مستخلص\s+البحث|المستخلص|كلمه\s+الشكر|تقدير\s+وشكر|شكر\s+وتقدير|تمهيد|مقدمه(?:\s+الكاتب)?|فهرس\s+المحتويات|فهرس\s+الموضوعات|قائمه\s+المحتويات|قائمه\s+الموضوعات|الفهرس|المحتويات|قائمه\s+الجداول|فهرس\s+الجداول|قائمه\s+الاشكال|فهرس\s+الاشكال|قائمه\s+الملاحق|فهرس\s+الملاحق|قائمه\s+الرموز|قائمه\s+الاختصارات)\b/.test(arabKey)
   ) {
     return true;
   }
-  return /^(HALAMAN JUDUL|HALAMAN SAMPUL|LEMBAR PERSETUJUAN|HALAMAN PERSETUJUAN|PERSETUJUAN PEMBIMBING|NOTA DINAS|LEMBAR PENGESAHAN|HALAMAN PENGESAHAN|PENGESAHAN|LEMBAR PERNYATAAN|HALAMAN PERNYATAAN|SURAT PERNYATAAN|PERNYATAAN KEASLIAN|PERNYATAAN ORISINALITAS|PERNYATAAN|MOTTO|HALAMAN MOTTO|PERSEMBAHAN|HALAMAN PERSEMBAHAN|ABSTRAK|ABSTRACT|INTISARI|RINGKASAN|KATA PENGANTAR|PRAKATA|UCAPAN TERIMA KASIH|PEDOMAN TRANSLITERASI|DAFTAR ISI|TABLE OF CONTENTS|ISI MAKALAH|ISI PROPOSAL|DAFTAR TABEL|DAFTAR GAMBAR|DAFTAR LAMPIRAN)\b/i.test(t);
+  return /^(LEMBAR\s+PERSETUJUAN|HALAMAN\s+PERSETUJUAN|PERSETUJUAN\s+PEMBIMBING|PERSETUJUAN|NOTA\s+DINAS|LEMBAR\s+PENGESAHAN|HALAMAN\s+PENGESAHAN|PENGESAHAN|LEMBAR\s+PERNYATAAN|HALAMAN\s+PERNYATAAN|SURAT\s+PERNYATAAN|PERNYATAAN\s+KEASLIAN|PERNYATAAN\s+ORISINALITAS|PERNYATAAN|MOTTO|HALAMAN\s+MOTTO|PERSEMBAHAN|HALAMAN\s+PERSEMBAHAN|ABSTRAK|ABSTRACT|INTISARI|RINGKASAN|KATA\s+PENGANTAR|PRAKATA|UCAPAN\s+TERIMA\s+KASIH|PEDOMAN\s+TRANSLITERASI|DAFTAR\s+ISI|TABLE\s+OF\s+CONTENTS|ISI\s+MAKALAH|ISI\s+PROPOSAL|DAFTAR\s+TABEL|DAFTAR\s+GAMBAR|DAFTAR\s+LAMPIRAN)\b/i.test(t);
 }
 
 function findFrontStart(paragraphs: Element[], bab1: number, existing?: SectionStart[]): number {
   const limit = bab1 >= 0 ? bab1 : paragraphs.length;
   if (limit <= 1) return -1;
 
-  const candidates: number[] = [];
+  // 1. Prioritas Utama: Cari judul halaman awal (Front Matter) resmi pertama
+  // seperti LEMBAR PENGESAHAN, LEMBAR PERSETUJUAN, PERNYATAAN KEASLIAN, MOTTO, ABSTRAK, KATA PENGANTAR, DAFTAR ISI.
+  // Seluruh teks cover (HALAMAN SAMPUL, HALAMAN JUDUL, judul, logo, biodata, tahun) diabaikan agar tidak memotong cover!
+  for (let i = 1; i < limit; i++) {
+    const text = getParagraphText(paragraphs[i]).trim();
+    if (!text || text.length > 90) continue;
+    if (isCoverHeadingOrContent(text)) continue;
+    if (isFrontMatterHeading(text)) {
+      return i;
+    }
+  }
 
-  // 1. Earliest existing section boundary after cover
+  // 2. Prioritas Kedua: Jika dokumen Word sudah memiliki section break asli antara Cover dan Front Matter
+  // (misal pemisah section yang dibuat penulis sebelum BAB I pada indeks > 1)
   if (existing && existing.length > 0) {
     const existingFront = existing
-      .filter(s => s.startParagraph > 0 && s.startParagraph < limit)
+      .filter(s => s.startParagraph > 1 && s.startParagraph < limit)
       .sort((a, b) => a.startParagraph - b.startParagraph)[0];
-    if (existingFront) candidates.push(existingFront.startParagraph);
-  }
-
-  // 2. Earliest semantic front-matter heading after first paragraph
-  for (let i = 1; i < limit; i++) {
-    if (isFrontMatterHeading(getParagraphText(paragraphs[i]))) {
-      candidates.push(i);
-      break;
+    if (existingFront) {
+      return existingFront.startParagraph;
     }
   }
 
-  // 3. Earliest non-empty paragraph after an explicit page break
-  let breakSeen = false;
+  // 3. Prioritas Ketiga: Cari batas hard page break eksplisit (<w:br w:type="page"/> atau pageBreakBefore)
+  // yang memisahkan cover dengan halaman berikutnya.
   for (let i = 0; i < limit; i++) {
-    if (hasPageBreak(paragraphs[i])) {
-      if (i > 0 && getParagraphText(paragraphs[i])) {
-        candidates.push(i);
-        break;
+    const p = paragraphs[i];
+    const pPr = child(p, 'pPr');
+    const hasPbb = !!(pPr && child(pPr, 'pageBreakBefore'));
+    if (hasPbb && i > 0) {
+      const nextText = getParagraphText(paragraphs[i]).trim();
+      if (!isCoverHeadingOrContent(nextText)) {
+        return i;
       }
-      breakSeen = true;
-      continue;
     }
-    if (breakSeen && getParagraphText(paragraphs[i])) {
-      candidates.push(i);
+    const hasHardBr = Array.from(p.getElementsByTagNameNS(W_NS, 'br')).some(x => /^page$/i.test(attr(x, 'type')));
+    if (hasHardBr) {
+      // Page break berada di paragraf i (akhir cover). Halaman berikutnya dimulai pada paragraf non-kosong pertama setelah i:
+      let isFollowedByCover = false;
+      for (let j = i + 1; j < limit; j++) {
+        const nextText = getParagraphText(paragraphs[j]).trim();
+        if (nextText.length > 0) {
+          if (isCoverHeadingOrContent(nextText)) {
+            isFollowedByCover = true;
+          } else {
+            return j;
+          }
+          break;
+        }
+      }
+      if (!isFollowedByCover) {
+        return Math.min(i + 1, limit - 1);
+      }
+    }
+  }
+
+  // Fallback aman: cari teks non-kosong pertama setelah rangkaian paragraf awal
+  let firstTextIdx = -1;
+  for (let i = 0; i < limit; i++) {
+    if (getParagraphText(paragraphs[i]).trim().length > 0) {
+      firstTextIdx = i;
       break;
     }
   }
-
-  if (candidates.length > 0) {
-    return Math.min(...candidates);
+  if (firstTextIdx >= 0) {
+    for (let i = firstTextIdx + 1; i < limit; i++) {
+      if (getParagraphText(paragraphs[i]).trim().length > 0) {
+        return i;
+      }
+    }
   }
 
-  // Fallback if document has front-matter paragraphs before BAB I without explicit page break
-  for (let i = 1; i < limit; i++) {
-    if (getParagraphText(paragraphs[i])) return i;
-  }
   return 1;
 }
 
@@ -878,7 +913,9 @@ function hasGeometry(sectPr: Element | null): boolean {
   return !!(child(sectPr, 'pgSz') || child(sectPr, 'pgMar'));
 }
 function copyGeometry(source: Element, target: Element): void {
-  const tags = ['pgSz', 'pgMar', 'cols', 'docGrid', 'paperSrc', 'pgBorders', 'vAlign', 'textDirection', 'bidi', 'rtlGutter'];
+  // Notice: 'vAlign' is deliberately omitted so vertical centering (e.g. vAlign="center")
+  // is NEVER copied across sections, preventing pages from being pushed halfway down the page.
+  const tags = ['pgSz', 'pgMar', 'cols', 'docGrid', 'paperSrc', 'pgBorders', 'textDirection', 'bidi', 'rtlGutter'];
   for (const tag of tags) {
     const srcEl = child(source, tag);
     const existing = child(target, tag);
@@ -1966,8 +2003,36 @@ export async function analyzeDocx(
 }
 
 /**
- * Cleans redundant hard page breaks right at a section boundary so that
- * `<w:type w:val="nextPage"/>` on the section break starts the new chapter
+ * Menghapus paragraf kosong (Enter berlebih) di bagian awal cover dokumen sebelum teks pertama/gambar,
+ * agar judul skripsi tidak terdorong turun ke bawah sampai separuh halaman dan cover tidak melompat jadi 3 halaman.
+ */
+function normalizeLeadingCoverSpacers(body: Element): void {
+  const ps = Array.from(body.children).filter(x => localName(x) === 'p') as Element[];
+  let firstContentIdx = -1;
+  for (let i = 0; i < ps.length; i++) {
+    const hasText = getParagraphText(ps[i]).trim().length > 0;
+    const hasDrawing = ps[i].getElementsByTagNameNS(W_NS, 'drawing').length > 0 || ps[i].getElementsByTagNameNS(W_NS, 'pict').length > 0;
+    if (hasText || hasDrawing) {
+      firstContentIdx = i;
+      break;
+    }
+  }
+  // Jika ada paragraf Enter kosong sebelum konten cover pertama, bersihkan paragraf kosong tersebut
+  if (firstContentIdx > 0) {
+    for (let i = 0; i < firstContentIdx; i++) {
+      const p = ps[i];
+      const pPr = child(p, 'pPr');
+      const sect = pPr ? child(pPr, 'sectPr') : null;
+      if (!sect && p.parentNode) {
+        p.parentNode.removeChild(p);
+      }
+    }
+  }
+}
+
+/**
+ * Cleans redundant hard page breaks and empty spacer paragraphs right at a section boundary
+ * so that `<w:type w:val="nextPage"/>` on the section break starts the new chapter
  * or Daftar Pustaka cleanly on a new page without creating an extra blank page
  * or pushing the previous section's end onto the new page.
  */
@@ -1995,15 +2060,20 @@ function cleanRedundantBreaksAtBoundary(paragraphs: Element[], startIdx: number)
   }
 
   // 2. Walk backwards through any empty spacer paragraphs immediately preceding startIdx
-  // and remove page breaks inside them so they don't push the previous section onto a new page.
+  // and remove page breaks / empty paragraphs so they don't push the previous section onto a new page,
+  // create extra blank pages, or push the new chapter halfway down the page.
   let k = startIdx - 1;
+  const emptyToRemove: Element[] = [];
   while (k >= 0) {
     const prevP = paragraphs[k];
     const hasText = getParagraphText(prevP).length > 0;
     const hasDrawing = prevP.getElementsByTagNameNS(W_NS, 'drawing').length > 0 || prevP.getElementsByTagNameNS(W_NS, 'pict').length > 0;
     if (!hasText && !hasDrawing) {
       const pPr = child(prevP, 'pPr');
-      if (pPr) {
+      const hasSect = pPr && child(pPr, 'sectPr');
+      if (!hasSect) {
+        emptyToRemove.push(prevP);
+      } else {
         const pbb = child(pPr, 'pageBreakBefore');
         if (pbb) pPr.removeChild(pbb);
       }
@@ -2014,7 +2084,7 @@ function cleanRedundantBreaksAtBoundary(paragraphs: Element[], startIdx: number)
       }
       k--;
     } else {
-      // On the last non-empty paragraph of the previous chapter (e.g. end of BAB IV or BAB V),
+      // On the last non-empty paragraph of the previous chapter (e.g. end of cover or BAB IV),
       // remove any trailing <w:br w:type="page"/> that comes after all visible text.
       const allRuns = Array.from(prevP.children).filter(x => localName(x) === 'r');
       for (let rIdx = allRuns.length - 1; rIdx >= 0; rIdx--) {
@@ -2036,6 +2106,10 @@ function cleanRedundantBreaksAtBoundary(paragraphs: Element[], startIdx: number)
       }
       break;
     }
+  }
+
+  for (const emp of emptyToRemove) {
+    if (emp.parentNode) emp.parentNode.removeChild(emp);
   }
 }
 
@@ -2180,7 +2254,7 @@ export async function correctThesisDocx(
   let ps = bodyParagraphs(body);
   const profile: DocumentNumberingProfile = options.numberingProfile || 'skripsi';
 
-  // Bind each section rule to its actual DOM paragraph element before TOC insertion
+  // Bind each section rule to its actual DOM paragraph element before any DOM modifications
   // so paragraph index shifts never misalign chapter boundaries.
   let bmSeed = 900;
   const boundRules = sections.map(s => {
@@ -2202,6 +2276,9 @@ export async function correctThesisDocx(
       element: el
     };
   });
+
+  normalizeLeadingCoverSpacers(body);
+  ps = bodyParagraphs(body);
 
   // Optional TOC Workflow
   let tocResult: TocWorkflowResult | null = null;
@@ -2271,6 +2348,14 @@ export async function correctThesisDocx(
     if (anyExistingSect) copyGeometry(anyExistingSect, bodySect);
     body.appendChild(bodySect);
   }
+  // Strip vertical centering from bodySect so document pages never float halfway down the page
+  const bodyVAlign = child(bodySect, 'vAlign');
+  if (bodyVAlign) {
+    const vVal = attr(bodyVAlign, 'val');
+    if (vVal && /^(center|bottom)$/i.test(vVal)) {
+      bodySect.removeChild(bodyVAlign);
+    }
+  }
 
   // Jamin judul bab (misal BAB V) dan sub-judulnya (misal PENUTUP) 100% selalu berada di 1 halaman yang sama
   // tanpa ada page break tersembunyi atau pemisahan yang keliru.
@@ -2283,15 +2368,52 @@ export async function correctThesisDocx(
     }
   }
 
-  // Clean redundant breaks at major section boundaries and insert section breaks
+  // Clean redundant breaks and empty spacer paragraphs at major section boundaries and insert section breaks
   // so every BAB (termasuk BAB V & PENUTUP dalam 1 halaman) and DAFTAR PUSTAKA starts cleanly on a new page.
   for (const s of [...rulesForCorrection].sort((a, b) => b.paragraphIndex - a.paragraphIndex)) {
     if (s.paragraphIndex > 0) {
-      cleanRedundantBreaksAtBoundary(ps, s.paragraphIndex);
-      insertSectAt(body, ps, s.paragraphIndex, docXml);
+      const bound = boundRules.find(b => b.rule.id === s.id);
+      let targetElement = bound?.element && ps.includes(bound.element) ? bound.element : null;
+      if (!targetElement && s.chapterNumber) {
+        targetElement = ps.find(p => getParagraphBabBookmark(p) === s.chapterNumber) || null;
+      }
+      if (!targetElement) {
+        targetElement = ps[s.paragraphIndex] || null;
+      }
+
+      if (targetElement) {
+        const targetIdx = ps.indexOf(targetElement);
+        if (targetIdx > 0) {
+          cleanRedundantBreaksAtBoundary(ps, targetIdx);
+          ps = bodyParagraphs(body);
+          const currIdx = ps.indexOf(targetElement);
+          if (currIdx > 0) {
+            insertSectAt(body, ps, currIdx, docXml);
+            ps = bodyParagraphs(body);
+          }
+        }
+      }
     }
   }
   ps = bodyParagraphs(body);
+
+  // CRITICAL: Re-synchronize paragraphIndex on ALL rulesForCorrection to match their exact DOM positions in ps!
+  for (const r of rulesForCorrection) {
+    if (r.paragraphIndex === 0) continue;
+    let actualIdx = -1;
+    if (r.chapterNumber && r.chapterNumber >= 1 && r.chapterNumber <= 6) {
+      actualIdx = ps.findIndex(p => getParagraphBabBookmark(p) === r.chapterNumber);
+    }
+    if (actualIdx < 0) {
+      const bound = boundRules.find(b => b.rule.id === r.id);
+      if (bound?.element) {
+        actualIdx = ps.indexOf(bound.element);
+      }
+    }
+    if (actualIdx >= 0) {
+      r.paragraphIndex = actualIdx;
+    }
+  }
 
   // Also ensure any subsequent back-matter headings after DAFTAR PUSTAKA (e.g. LAMPIRAN, RIWAYAT HIDUP)
   // start on a new page if they don't already have a break.
@@ -2335,6 +2457,15 @@ export async function correctThesisDocx(
       expectedNumbering: { ...baseRule.expectedNumbering }
     };
     const sect = entry.sectPr;
+
+    // Strip vertical centering from all sections so pages never float halfway down the page
+    const vAlign = child(sect, 'vAlign');
+    if (vAlign) {
+      const vVal = attr(vAlign, 'val');
+      if (vVal && /^(center|bottom)$/i.test(vVal)) {
+        sect.removeChild(vAlign);
+      }
+    }
 
     // Ensure every section preserves the student's page geometry
     if (bodySect && sect !== bodySect) {
@@ -2451,6 +2582,15 @@ export async function correctThesisDocx(
   return { blob, tocResult };
 }
 
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 export async function createSampleFaultyThesisDocx(): Promise<Blob> {
   const zip = new JSZip();
   zip.file('[Content_Types].xml', `<?xml version="1.0"?><Types xmlns="${TYPES_NS}"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
@@ -2495,7 +2635,7 @@ export async function createSampleFaultyThesisDocx(): Promise<Blob> {
     { text: 'Sugiyono. (2022). Metode Penelitian Kuantitatif, Kualitatif, dan R&D. Bandung: Alfabeta.', br: false },
     { text: 'RIWAYAT HIDUP', br: true }
   ];
-  const body = paras.map(p => `<w:p>${p.br ? '<w:r><w:br w:type="page"/></w:r>' : ''}<w:r><w:t>${p.text}</w:t></w:r></w:p>`).join('');
+  const body = paras.map(p => `<w:p>${p.br ? '<w:r><w:br w:type="page"/></w:r>' : ''}<w:r><w:t>${escapeXml(p.text)}</w:t></w:r></w:p>`).join('');
   zip.file('word/document.xml', `<?xml version="1.0"?><w:document xmlns:w="${W_NS}" xmlns:r="${R_NS}"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2268" w:right="1701" w:bottom="1701" w:left="2268"/></w:sectPr></w:body></w:document>`);
   return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }
@@ -2545,7 +2685,7 @@ export async function createSampleNoTocThesisDocx(): Promise<Blob> {
     { text: 'Arikunto, S. (2021). Prosedur Penelitian. Jakarta: Rineka Cipta.', br: false },
     { text: 'LAMPIRAN', br: true }
   ];
-  const body = paras.map(p => `<w:p>${p.br ? '<w:r><w:br w:type="page"/></w:r>' : ''}<w:r><w:t>${p.text}</w:t></w:r></w:p>`).join('');
+  const body = paras.map(p => `<w:p>${p.br ? '<w:r><w:br w:type="page"/></w:r>' : ''}<w:r><w:t>${escapeXml(p.text)}</w:t></w:r></w:p>`).join('');
   zip.file('word/document.xml', `<?xml version="1.0"?><w:document xmlns:w="${W_NS}" xmlns:r="${R_NS}"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2268" w:right="1701" w:bottom="1701" w:left="2268"/></w:sectPr></w:body></w:document>`);
   return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }
@@ -2587,7 +2727,7 @@ export async function createSampleArabicThesisDocx(): Promise<Blob> {
   const body = paras
     .map(
       p =>
-        `<w:p><w:pPr><w:bidi/></w:pPr>${p.br ? '<w:r><w:br w:type="page"/></w:r>' : ''}<w:r><w:rPr><w:rFonts w:ascii="Traditional Arabic" w:hAnsi="Traditional Arabic" w:cs="Traditional Arabic"/><w:sz w:val="36"/><w:szCs w:val="36"/><w:rtl/></w:rPr><w:t>${p.text}</w:t></w:r></w:p>`
+        `<w:p><w:pPr><w:bidi/></w:pPr>${p.br ? '<w:r><w:br w:type="page"/></w:r>' : ''}<w:r><w:rPr><w:rFonts w:ascii="Traditional Arabic" w:hAnsi="Traditional Arabic" w:cs="Traditional Arabic"/><w:sz w:val="36"/><w:szCs w:val="36"/><w:rtl/></w:rPr><w:t>${escapeXml(p.text)}</w:t></w:r></w:p>`
     )
     .join('');
   zip.file('word/document.xml', `<?xml version="1.0"?><w:document xmlns:w="${W_NS}" xmlns:r="${R_NS}"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2268" w:right="1701" w:bottom="1701" w:left="2268"/><w:bidi/></w:sectPr></w:body></w:document>`);
@@ -2651,7 +2791,7 @@ export async function createSampleProposalDocx(): Promise<Blob> {
   const body = paras
     .map(
       p =>
-        `<w:p>${p.br ? '<w:r><w:br w:type="page"/></w:r>' : ''}<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>${p.bold ? '<w:b/>' : ''}<w:sz w:val="24"/></w:rPr><w:t>${p.text}</w:t></w:r></w:p>`
+        `<w:p>${p.br ? '<w:r><w:br w:type="page"/></w:r>' : ''}<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>${p.bold ? '<w:b/>' : ''}<w:sz w:val="24"/></w:rPr><w:t>${escapeXml(p.text)}</w:t></w:r></w:p>`
     )
     .join('');
   zip.file('word/document.xml', `<?xml version="1.0"?><w:document xmlns:w="${W_NS}" xmlns:r="${R_NS}"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="2268" w:right="1701" w:bottom="1701" w:left="2268"/></w:sectPr></w:body></w:document>`);

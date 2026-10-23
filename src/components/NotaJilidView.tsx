@@ -19,8 +19,8 @@ export const NotaJilidView: React.FC<NotaJilidViewProps> = ({ onBackToHome }) =>
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Target direct URL and internal proxy URL
-  const DIRECT_URL = 'https://update15oktober26.zainnet-nota-v8.pages.dev/';
-  const PROXY_URL = '/proxy-notajilid';
+  const DIRECT_URL = 'https://zainnet-nota-v8.pages.dev/?utm_source=chatgpt.com';
+  const PROXY_URL = '/proxy-notajilid?utm_source=chatgpt.com';
   const iframeSrc = embedMode === 'proxy' ? PROXY_URL : DIRECT_URL;
 
   // Listen to fullscreen change

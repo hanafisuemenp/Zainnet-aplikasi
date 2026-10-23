@@ -147,9 +147,21 @@ export const StructureInspector: React.FC<StructureInspectorProps> = ({
                           SUDAH TERPASANG
                         </span>
                       ) : isFound ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                          TEKS SIAP DIGANTI
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                            TEKS SIAP DIGANTI
+                          </span>
+                          {onOpenManualPick && (
+                            <button
+                              type="button"
+                              onClick={() => onOpenManualPick(target)}
+                              className="text-[10px] text-slate-500 hover:text-indigo-600 underline cursor-pointer"
+                              title="Pilih halaman atau heading lain secara manual jika penempatan kurang tepat"
+                            >
+                              Ubah
+                            </button>
+                          )}
+                        </div>
                       ) : (
                         <button
                           type="button"

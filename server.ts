@@ -1,3 +1,4 @@
+process.env.DISABLE_HMR = 'true';
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -110,11 +111,11 @@ try {
   console.warn('R2 config load warning:', e);
 }
 
-// Proxy endpoint for /proxy-notajilid to stream https://update15oktober26.zainnet-nota-v8.pages.dev/ without X-Frame-Options: DENY blocking
+// Proxy endpoint for /proxy-notajilid to stream https://zainnet-nota-v8.pages.dev/ without X-Frame-Options: DENY blocking
 app.all(['/proxy-notajilid', '/proxy-notajilid/*'], async (req, res) => {
   try {
     const rawSubPath = req.originalUrl.replace(/^\/proxy-notajilid/, '') || '/';
-    const targetUrl = new URL(rawSubPath, 'https://update15oktober26.zainnet-nota-v8.pages.dev').toString();
+    const targetUrl = new URL(rawSubPath, 'https://zainnet-nota-v8.pages.dev').toString();
 
     const forwardHeaders: Record<string, string> = {
       'User-Agent': (req.headers['user-agent'] as string) || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
@@ -164,11 +165,11 @@ app.all(['/proxy-notajilid', '/proxy-notajilid/*'], async (req, res) => {
   }
 });
 
-// Proxy endpoint for /proxy-sewatoga to stream https://sewatoga-v1-4.sewatoga.pages.dev/ without X-Frame-Options or CSP blocking
+// Proxy endpoint for /proxy-sewatoga to stream https://03c702f0.sewatoga.pages.dev/ without X-Frame-Options or CSP blocking
 app.all(['/proxy-sewatoga', '/proxy-sewatoga/*'], async (req, res) => {
   try {
     const rawSubPath = req.originalUrl.replace(/^\/proxy-sewatoga/, '') || '/';
-    const targetUrl = new URL(rawSubPath, 'https://sewatoga-v1-4.sewatoga.pages.dev').toString();
+    const targetUrl = new URL(rawSubPath, 'https://03c702f0.sewatoga.pages.dev').toString();
 
     const forwardHeaders: Record<string, string> = {
       'User-Agent': (req.headers['user-agent'] as string) || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
@@ -203,7 +204,7 @@ app.all(['/proxy-sewatoga', '/proxy-sewatoga/*'], async (req, res) => {
       let html = await response.text();
       // Ensure relative links/scripts resolve directly against sewatoga base domain
       if (!html.includes('<base ')) {
-        html = html.replace('<head>', '<head><base href="https://sewatoga-v1-4.sewatoga.pages.dev/">');
+        html = html.replace('<head>', '<head><base href="https://03c702f0.sewatoga.pages.dev/">');
       }
       return res.send(html);
     } else {
@@ -3226,7 +3227,7 @@ async function startServer() {
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: false },
       appType: 'spa',
     });
 

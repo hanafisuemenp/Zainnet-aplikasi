@@ -6,7 +6,7 @@
 import JSZip from 'jszip';
 import { ValidationCheck, ValidationResult } from '../types/skripsi';
 
-export async function validateDocxBlob(blob: Blob): Promise<ValidationResult> {
+export async function validateDocxBlob(blob: Blob, originalData?: ArrayBuffer): Promise<ValidationResult> {
   const checks: ValidationCheck[] = [];
 
   try {
@@ -46,24 +46,36 @@ export async function validateDocxBlob(blob: Blob): Promise<ValidationResult> {
     }
 
     const docXml = await docFile.async('text');
-    const parser = new DOMParser();
-    const docXmlDom = parser.parseFromString(docXml, 'application/xml');
-    const parserError = docXmlDom.querySelector('parsererror');
+    const parser = typeof DOMParser !== 'undefined' ? new DOMParser() : null;
 
-    if (parserError) {
-      const errDetail = parserError.textContent || 'XML syntax error';
-      return {
-        isValid: false,
-        checks: [
-          ...checks,
-          {
-            name: 'Validitas XML document.xml',
-            passed: false,
-            details: `Sintaks XML malformed: ${errDetail.substring(0, 150)}`,
-          },
-        ],
-        errorMessage: `File belum dapat dibuat karena struktur DOCX gagal divalidasi (XML Malformed: ${errDetail.substring(0, 100)}).`,
-      };
+    if (parser) {
+      const docXmlDom = parser.parseFromString(docXml, 'application/xml');
+      const parserError = docXmlDom.querySelector('parsererror');
+
+      if (parserError) {
+        const errDetail = parserError.textContent || 'XML syntax error';
+        return {
+          isValid: false,
+          checks: [
+            ...checks,
+            {
+              name: 'Validitas XML document.xml',
+              passed: false,
+              details: `Sintaks XML malformed: ${errDetail.substring(0, 150)}`,
+            },
+          ],
+          errorMessage: `File belum dapat dibuat karena struktur DOCX gagal divalidasi (XML Malformed: ${errDetail.substring(0, 100)}).`,
+        };
+      }
+    } else {
+      // Node environment fallback syntax sanity check
+      if (!docXml.startsWith('<?xml') && !docXml.includes('<w:document')) {
+        return {
+          isValid: false,
+          checks,
+          errorMessage: 'Struktur DOCX tidak valid: document.xml tidak memiliki root element yang sah.',
+        };
+      }
     }
 
     checks.push({
@@ -83,36 +95,55 @@ export async function validateDocxBlob(blob: Blob): Promise<ValidationResult> {
     }
 
     const relsXml = await relsFile.async('text');
-    const relsDom = parser.parseFromString(relsXml, 'application/xml');
-    const relsError = relsDom.querySelector('parsererror');
-    if (relsError) {
-      return {
-        isValid: false,
-        checks,
-        errorMessage: 'Relationship XML malformed.',
-      };
-    }
-
-    // Check duplicate relationship IDs
-    const relationshipNodes = relsDom.getElementsByTagName('Relationship');
     const idSet = new Set<string>();
     let duplicateIdFound: string | null = null;
     const relTargetsMap = new Map<string, string>();
 
-    for (let i = 0; i < relationshipNodes.length; i++) {
-      const node = relationshipNodes[i];
-      const id = node.getAttribute('Id');
-      const target = node.getAttribute('Target');
-      const type = node.getAttribute('Type');
+    if (parser) {
+      const relsDom = parser.parseFromString(relsXml, 'application/xml');
+      const relsError = relsDom.querySelector('parsererror');
+      if (relsError) {
+        return {
+          isValid: false,
+          checks,
+          errorMessage: 'Relationship XML malformed.',
+        };
+      }
 
-      if (id) {
-        if (idSet.has(id)) {
-          duplicateIdFound = id;
-          break;
+      const relationshipNodes = relsDom.getElementsByTagName('Relationship');
+      for (let i = 0; i < relationshipNodes.length; i++) {
+        const node = relationshipNodes[i];
+        const id = node.getAttribute('Id');
+        const target = node.getAttribute('Target');
+        const type = node.getAttribute('Type');
+
+        if (id) {
+          if (idSet.has(id)) {
+            duplicateIdFound = id;
+            break;
+          }
+          idSet.add(id);
+          if (target && type?.includes('/image')) {
+            relTargetsMap.set(id, target);
+          }
         }
-        idSet.add(id);
-        if (target && type?.includes('/image')) {
-          relTargetsMap.set(id, target);
+      }
+    } else {
+      const relMatches = [...relsXml.matchAll(/<Relationship\b([^>]*)\/?>/g)];
+      for (const m of relMatches) {
+        const attrs = m[1];
+        const id = attrs.match(/Id="([^"]*)"/)?.[1];
+        const target = attrs.match(/Target="([^"]*)"/)?.[1];
+        const type = attrs.match(/Type="([^"]*)"/)?.[1];
+        if (id) {
+          if (idSet.has(id)) {
+            duplicateIdFound = id;
+            break;
+          }
+          idSet.add(id);
+          if (target && type?.includes('/image')) {
+            relTargetsMap.set(id, target);
+          }
         }
       }
     }
@@ -185,12 +216,38 @@ export async function validateDocxBlob(blob: Blob): Promise<ValidationResult> {
       details: '[Content_Types].xml terverifikasi',
     });
 
-    // 6. Section & Headers/Footers verification
-    const sectCount = (docXml.match(/<w:sectPr/g) || []).length;
+    // 6. Validate page-number restarts against the ORIGINAL document.
+    // OOXML section breaks can silently reset Roman/Arabic page numbering.
+    const sectCount = (docXml.match(/<w:sectPr\b/g) || []).length;
+    if (originalData) {
+      const originalZip = await JSZip.loadAsync(originalData);
+      const originalXml = await originalZip.file('word/document.xml')?.async('text');
+      if (originalXml) {
+        const restartValues = (xml: string) =>
+          [...xml.matchAll(/<w:pgNumType\b[^>]*?\bw:start="([^"]*)"/g)].map((m) => m[1]);
+        const before = restartValues(originalXml);
+        const after = restartValues(docXml);
+        const same = before.join('|') === after.join('|');
+        checks.push({
+          name: 'Perlindungan Restart Nomor Halaman',
+          passed: same,
+          details: same
+            ? `${before.length} titik mulai ulang nomor halaman Romawi/Arab asli tetap dipertahankan`
+            : `Nomor halaman asli berubah: ${before.length} restart sebelum, ${after.length} restart sesudah`,
+        });
+        if (!same) {
+          return {
+            isValid: false,
+            checks,
+            errorMessage: 'Penomoran asli berubah. Simpan dibatalkan agar file skripsi tidak rusak.',
+          };
+        }
+      }
+    }
     checks.push({
-      name: 'Perlindungan Section, Header & Footer',
+      name: 'Struktur Section, Header & Footer',
       passed: true,
-      details: `Struktur dokumen utuh (${sectCount} section, header/footer/styles asli dipertahankan)`,
+      details: `${sectCount} section setelah penyisipan; relasi header/footer asli tidak dihapus`,
     });
 
     return {

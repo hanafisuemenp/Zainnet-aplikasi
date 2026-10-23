@@ -655,12 +655,7 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
   if (
     tool.id === 'nota-1' || 
     tool.url === '/notajilid' || 
-    tool.url === 'https://update15oktober26.zainnet-nota-v8.pages.dev/' ||
-    tool.url === 'https://update15oktober26.zainnet-nota-v8.pages.dev' ||
-    tool.url === 'https://hardcover-v9-8.zainnet-nota-v8.pages.dev/' ||
-    tool.url === 'https://hardcover-v9-8.zainnet-nota-v8.pages.dev' ||
-    tool.url === 'https://updatela.zainnet-nota-v8.pages.dev/' || 
-    tool.url === 'https://zainnet-nota-v8.pages.dev/'
+    tool.url?.includes('zainnet-nota-v8.pages.dev')
   ) {
     return (
       <NotaJilidView 
@@ -674,10 +669,7 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
   if (
     tool.id === 'toga-1' || 
     tool.url === '/sewatoga' || 
-    tool.url === 'https://sewatoga-v1-4.sewatoga.pages.dev/' ||
-    tool.url === 'https://sewatoga-v1-4.sewatoga.pages.dev' ||
-    tool.url === 'https://sewatoga.pages.dev/' || 
-    tool.url === 'https://sewatoga.pages.dev'
+    tool.url?.includes('sewatoga.pages.dev')
   ) {
     return (
       <SewaTogaView 
@@ -1134,15 +1126,10 @@ export const ToolViewerModal: React.FC<ToolViewerModalProps> = ({
             src={
               tool.id === 'nota-1' || 
               tool.url === '/notajilid' || 
-              tool.url === 'https://update15oktober26.zainnet-nota-v8.pages.dev/' ||
-              tool.url === 'https://update15oktober26.zainnet-nota-v8.pages.dev' ||
-              tool.url === 'https://hardcover-v9-8.zainnet-nota-v8.pages.dev/' ||
-              tool.url === 'https://hardcover-v9-8.zainnet-nota-v8.pages.dev' ||
-              tool.url === 'https://updatela.zainnet-nota-v8.pages.dev/' || 
-              tool.url === 'https://zainnet-nota-v8.pages.dev/'
-                ? '/proxy-notajilid'
-                : (tool.id === 'toga-1' || tool.url === '/sewatoga' || tool.url === 'https://sewatoga-v1-4.sewatoga.pages.dev/' || tool.url === 'https://sewatoga.pages.dev/'
-                  ? '/proxy-sewatoga'
+              tool.url?.includes('zainnet-nota-v8.pages.dev')
+                ? '/proxy-notajilid?utm_source=chatgpt.com'
+                : (tool.id === 'toga-1' || tool.url === '/sewatoga' || tool.url?.includes('sewatoga.pages.dev')
+                  ? '/proxy-sewatoga?utm_source=chatgpt.com'
                   : tool.url)
             }
             title={tool.title}

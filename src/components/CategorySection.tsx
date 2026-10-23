@@ -2,9 +2,19 @@ import React from 'react';
 import { 
   ChevronDown, 
   ChevronUp,
-  Sparkles, 
   Crown,
-  Wrench
+  Wrench,
+  FileText,
+  Scissors,
+  Layers,
+  Edit3,
+  ShieldCheck,
+  FileCheck,
+  BookOpen,
+  Image as ImageIcon,
+  Tag,
+  FolderArchive,
+  GraduationCap
 } from 'lucide-react';
 import { ToolCategory, ToolItem, UserRole, MaintenanceConfig, ToolMaintenanceItem } from '../types';
 import { ToolCard } from './ToolCard';
@@ -32,6 +42,37 @@ interface CategorySectionProps {
   onOpenMaintenanceNotice?: (tool: ToolItem, maintenanceInfo?: ToolMaintenanceItem) => void;
   onQuickManageMaintenance?: (tool: ToolItem) => void;
 }
+
+const getCategoryIcon = (id: number) => {
+  switch (id) {
+    case 1:
+      return <FileText className="w-5 h-5 text-[#0e5c4d]" />;
+    case 2:
+      return <Scissors className="w-5 h-5 text-[#0e5c4d]" />;
+    case 3:
+      return <Layers className="w-5 h-5 text-[#0e5c4d]" />;
+    case 4:
+      return <Edit3 className="w-5 h-5 text-[#0e5c4d]" />;
+    case 5:
+      return <ShieldCheck className="w-5 h-5 text-[#0e5c4d]" />;
+    case 6:
+      return <FileCheck className="w-5 h-5 text-[#0e5c4d]" />;
+    case 7:
+      return <BookOpen className="w-5 h-5 text-[#0e5c4d]" />;
+    case 8:
+      return <ImageIcon className="w-5 h-5 text-[#0e5c4d]" />;
+    case 9:
+      return <Tag className="w-5 h-5 text-[#0e5c4d]" />;
+    case 10:
+      return <FolderArchive className="w-5 h-5 text-[#0e5c4d]" />;
+    case 11:
+      return <GraduationCap className="w-5 h-5 text-[#0e5c4d]" />;
+    case 12:
+      return <BookOpen className="w-5 h-5 text-[#0e5c4d]" />;
+    default:
+      return <FileText className="w-5 h-5 text-[#0e5c4d]" />;
+  }
+};
 
 export const CategorySection: React.FC<CategorySectionProps> = ({
   category,
@@ -70,10 +111,10 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   return (
     <div 
       id={`section-${category.id}`}
-      className={`rounded-3xl border transition-all duration-300 overflow-hidden ${
+      className={`rounded-2xl border transition-all duration-300 overflow-hidden bg-white border-slate-200/90 border-l-[5px] border-l-amber-400 shadow-sm hover:shadow-md ${
         isOpen
-          ? 'bg-[#141c2e] border-slate-700/80 shadow-xl shadow-black/30'
-          : 'bg-[#141c2e]/90 border-[#1f293d] hover:border-slate-700/80'
+          ? 'md:col-span-2 shadow-lg ring-1 ring-amber-400/40 border-amber-300'
+          : 'hover:border-slate-300'
       }`}
     >
       {/* Accordion Header Button */}
@@ -81,53 +122,54 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         type="button"
         onClick={() => onToggle(category.id)}
         aria-expanded={isOpen}
-        className="w-full flex items-center justify-between gap-3 p-4 sm:p-5 text-left transition-colors cursor-pointer"
+        className="w-full flex items-center justify-between gap-3 p-3.5 sm:p-4 text-left transition-colors cursor-pointer hover:bg-slate-50/70"
       >
-        <div className="flex items-center gap-3.5 min-w-0 flex-1">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           {/* Category Number Badge */}
-          <div className={`w-12 h-12 min-w-12 rounded-2xl flex items-center justify-center font-extrabold text-lg sm:text-xl text-white shadow-md shrink-0 ${
-            isAdmin
-              ? 'bg-amber-500 text-black'
-              : 'bg-blue-600'
-          }`}>
+          <div className="w-9 h-9 sm:w-10 sm:h-10 min-w-9 sm:min-w-10 rounded-lg flex items-center justify-center font-extrabold text-base sm:text-lg text-white bg-[#0e5c4d] shadow-sm shrink-0">
             {category.number}
           </div>
 
+          {/* Category Icon */}
+          <div className="w-8 h-8 min-w-8 flex items-center justify-center text-[#0e5c4d] shrink-0">
+            {getCategoryIcon(category.id)}
+          </div>
+
           {/* Category Info */}
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="font-bold text-base sm:text-lg text-white tracking-tight">
+          <div className="min-w-0 flex-1 pr-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h2 className="font-bold text-[15px] sm:text-base text-slate-900 tracking-tight leading-snug">
                 {category.title}
               </h2>
               {isAdmin && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                  <Crown className="w-3 h-3 text-amber-400" />
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#fef3c7] text-[#92400e] border border-amber-300/60 shrink-0">
+                  <Crown className="w-3 h-3 text-amber-600 fill-amber-500" />
                   <span>Admin</span>
                 </span>
               )}
               {maintenanceCount > 0 && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
-                  <Wrench className="w-2.5 h-2.5" />
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                  <Wrench className="w-2.5 h-2.5 text-rose-600" />
                   <span>{maintenanceCount} Modul Perbaikan</span>
                 </span>
               )}
             </div>
-            <p className="text-xs sm:text-sm text-gray-400 mt-0.5 truncate">
-              {category.subtitle || `${category.tools.length} tools untuk ${category.title.toLowerCase()}`}
+            <p className="text-xs text-slate-500 font-normal mt-0.5 leading-relaxed break-words">
+              {category.subtitle || `${category.tools.length} alat untuk ${category.title.toLowerCase()}`}
             </p>
           </div>
         </div>
 
         {/* Arrow Toggle Indicator */}
-        <div className={`w-10 h-10 min-w-10 rounded-xl flex items-center justify-center transition-all duration-200 shrink-0 ${
+        <div className={`w-9 h-9 min-w-9 rounded-xl flex items-center justify-center transition-all duration-200 shrink-0 border border-amber-200/70 ${
           isOpen
-            ? 'bg-blue-600 text-white shadow-md'
-            : 'bg-[#202b42] text-white hover:bg-[#283550]'
+            ? 'bg-amber-400 text-slate-900 shadow-sm'
+            : 'bg-[#fef3c7] hover:bg-[#fde68a] text-[#b45309]'
         }`}>
           {isOpen ? (
-            <ChevronUp className="w-5 h-5" />
+            <ChevronUp className="w-5 h-5 stroke-[2.5]" />
           ) : (
-            <ChevronDown className="w-5 h-5" />
+            <ChevronDown className="w-5 h-5 stroke-[2.5]" />
           )}
         </div>
       </button>
@@ -135,7 +177,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       {/* Accordion Content */}
       <div 
         className={`transition-all duration-300 ease-in-out overflow-hidden ${
-          isOpen ? 'max-h-[1400px] opacity-100 px-4 sm:px-5 pb-4 sm:pb-5 pt-1' : 'max-h-0 opacity-0 px-4 sm:px-5 py-0 pointer-events-none'
+          isOpen ? 'max-h-[2500px] opacity-100 px-4 sm:px-5 pb-4 sm:pb-5 pt-3 border-t border-slate-100 bg-slate-50/50' : 'max-h-0 opacity-0 px-4 sm:px-5 py-0 pointer-events-none'
         }`}
       >
         {/* List of tools in this category */}
@@ -184,5 +226,3 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     </div>
   );
 };
-
-

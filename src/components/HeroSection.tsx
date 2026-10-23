@@ -8,15 +8,15 @@ interface HeroSectionProps {
 }
 
 // Charitize's split carousel composition, adapted to ZAIN.NET's existing actions.
-export const HeroSection: React.FC<HeroSectionProps> = ({ onExploreModules, totalToolsCount = 11 }) => (
+export const HeroSection: React.FC<HeroSectionProps> = ({ onExploreModules, totalToolsCount = 12 }) => (
   <section className="charitize-hero" aria-labelledby="zain-hero-title">
     <div className="charitize-hero-copy">
       <span className="charitize-eyebrow"><Sparkles size={15} /> Pusat layanan akademik ZAIN.NET</span>
       <h1 id="zain-hero-title">Urus dokumen akademik <span>lebih mudah.</span></h1>
-      <p>Mulai dari skripsi, artikel dan makalah hingga nota jilid. Pilih dari {totalToolsCount} alat yang tersedia dalam 11 menu layanan, lalu lanjutkan dengan alur yang sudah Anda kenal.</p>
+      <p>Mulai dari skripsi, artikel dan makalah hingga nota jilid. Pilih dari {totalToolsCount} alat yang tersedia dalam 12 menu layanan, lalu lanjutkan dengan alur yang sudah Anda kenal.</p>
       <div className="charitize-hero-actions">
         <button type="button" onClick={onExploreModules} className="charitize-primary-cta">
-          Lihat menu 1–11 <ArrowRight size={19} />
+          Lihat menu 1–12 <ArrowRight size={19} />
         </button>
         <a href="https://wa.me/6285231176597" target="_blank" rel="noopener noreferrer" className="charitize-secondary-cta">Hubungi ZAIN.NET</a>
       </div>
@@ -28,7 +28,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onExploreModules, tota
     </div>
     <div className="charitize-hero-visual">
       <img src={studentImage} alt="Mahasiswa menyiapkan dokumen akademik" fetchPriority="high" width="720" height="560" />
-      <div className="charitize-hero-caption"><span>11</span><strong>Menu layanan ZAIN.NET</strong></div>
+      <div className="charitize-hero-caption"><span>12</span><strong>Menu layanan ZAIN.NET</strong></div>
     </div>
   </section>
 );

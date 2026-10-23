@@ -3,6 +3,35 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <script>
+      // Suppress harmless Vite HMR WebSocket connection errors in iframe preview environment
+      window.addEventListener('error', function(e) {
+        var msg = (e && e.message) || '';
+        var file = (e && e.filename) || '';
+        if (
+          msg.includes('WebSocket') ||
+          msg.includes('createWebSocketModuleRunnerTransport') ||
+          msg.includes('failed to connect') ||
+          file.includes('@vite/client')
+        ) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+          return true;
+        }
+      }, true);
+      window.addEventListener('unhandledrejection', function(e) {
+        var reason = (e && e.reason && (e.reason.message || String(e.reason))) || '';
+        if (
+          reason.includes('WebSocket') ||
+          reason.includes('createWebSocketModuleRunnerTransport') ||
+          reason.includes('failed to connect') ||
+          reason.includes('@vite/client')
+        ) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+        }
+      }, true);
+    </script>
     <meta name="theme-color" content="#1a685b" />
     <meta name="color-scheme" content="light" />
     <title>ZAIN.NET — Layanan Akademik dan Percetakan</title>
@@ -30,12 +59,10 @@
   </head>
   <body>
     <div id="root">
-      <div class="zain-page-loader" role="status" aria-live="polite">
-        <div class="zain-page-loader__card">
-          <div class="zain-page-loader__logo" aria-hidden="true">Z</div>
-          <p class="zain-page-loader__title">ZAIN.NET</p>
-          <p class="zain-page-loader__text">Menyiapkan modul akademik Anda...</p>
-        </div>
+      <div class="zain-first-paint" aria-label="ZAIN.NET Layanan Akademik">
+        <div class="zain-first-paint__brand">ZAIN.NET</div>
+        <div class="zain-first-paint__title">Layanan Akademik &amp; Percetakan</div>
+        <p>Pilih layanan dokumen akademik Anda.</p>
       </div>
     </div>
     <noscript>

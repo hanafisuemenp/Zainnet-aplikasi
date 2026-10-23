@@ -63,11 +63,23 @@ export const STANDARD_SIGNED_PAGES = [
     standardOrder: 3,
     keywords: [
       'PERNYATAAN KEASLIAN TULISAN',
-      'SURAT PERNYATAAN KEASLIAN',
-      'PERNYATAAN KEASLIAN',
-      'SURAT PERNYATAAN BUKAN PLAGIAT',
-      'KEASLIAN TULISAN',
       'SURAT PERNYATAAN KEASLIAN TULISAN',
+      'PERNYATAAN KEASLIAN',
+      'SURAT PERNYATAAN KEASLIAN',
+      'LEMBAR PERNYATAAN KEASLIAN',
+      'HALAMAN PERNYATAAN KEASLIAN',
+      'PERNYATAAN KEASLIAN SKRIPSI',
+      'SURAT PERNYATAAN KEASLIAN SKRIPSI',
+      'PERNYATAAN KEASLIAN KARYA',
+      'SURAT PERNYATAAN BUKAN PLAGIAT',
+      'PERNYATAAN BUKAN PLAGIAT',
+      'SURAT PERNYATAAN BEBAS PLAGIASI',
+      'PERNYATAAN ORISINALITAS',
+      'SURAT PERNYATAAN ORISINALITAS',
+      'KEORISINILAN',
+      'ORISINALITAS',
+      'KEASLIAN TULISAN',
+      'SURAT KEASLIAN',
     ],
   },
 ];
@@ -263,11 +275,11 @@ export async function parseDocx(
     let tag: 'w:p' | 'w:tbl' | 'w:sectPr' | 'w:sdt' | '' = '';
     if (bodyContent.startsWith('<w:p ', nextTag) || bodyContent.startsWith('<w:p>', nextTag) || bodyContent.startsWith('<w:p/>', nextTag)) {
       tag = 'w:p';
-    } else if (bodyContent.startsWith('<w:tbl', nextTag)) {
+    } else if (bodyContent.startsWith('<w:tbl ', nextTag) || bodyContent.startsWith('<w:tbl>', nextTag) || bodyContent.startsWith('<w:tbl/>', nextTag)) {
       tag = 'w:tbl';
     } else if (bodyContent.startsWith('<w:sectPr', nextTag)) {
       tag = 'w:sectPr';
-    } else if (bodyContent.startsWith('<w:sdt', nextTag)) {
+    } else if (bodyContent.startsWith('<w:sdt ', nextTag) || bodyContent.startsWith('<w:sdt>', nextTag) || bodyContent.startsWith('<w:sdt/>', nextTag)) {
       tag = 'w:sdt';
     } else {
       pos = nextTag + 3;
@@ -304,12 +316,14 @@ export async function parseDocx(
 
     // For w:tbl and w:sdt (track matching depth)
     const closeTagStr = '</' + tag + '>';
-    const openTagStr = '<' + tag;
+    const openTagRegex = new RegExp('<' + tag + '[\\s>]', 'g');
     let depth = 1;
     let sPos = firstCloseBracket + 1;
 
     while (depth > 0 && sPos < len) {
-      const nOpen = bodyContent.indexOf(openTagStr, sPos);
+      openTagRegex.lastIndex = sPos;
+      const mOpen = openTagRegex.exec(bodyContent);
+      const nOpen = mOpen ? mOpen.index : -1;
       const nClose = bodyContent.indexOf(closeTagStr, sPos);
       if (nClose === -1) {
         sPos = len;
@@ -367,12 +381,16 @@ export async function parseDocx(
     }
 
     const upperText = text.toUpperCase();
-    const isTocLine = /(?:\.{2,}|\.\s+\.|\t+\d+|\t+[ivxlcdm]+)/i.test(text);
+    const isTocLine =
+      rawXml.includes('<w:tab') ||
+      rawXml.includes('w:leader=') ||
+      rawXml.includes('<w:tabs') ||
+      /(?:\.{2,}|\.\s+\.|\t+\d+|\t+[ivxlcdm]+)/i.test(text);
 
     if (bab1ElementIndex === -1 && !isTocLine && (upperText.startsWith('BAB I ') || upperText === 'BAB I' || upperText.startsWith('BAB 1 '))) {
       bab1ElementIndex = elementIndex;
     }
-    if (daftarRujukanElementIndex === -1 && !isTocLine && (upperText.includes('DAFTAR RUJUKAN') || upperText.includes('DAFTAR PUSTAKA'))) {
+    if (bab1ElementIndex !== -1 && daftarRujukanElementIndex === -1 && !isTocLine && (upperText.includes('DAFTAR RUJUKAN') || upperText.includes('DAFTAR PUSTAKA'))) {
       daftarRujukanElementIndex = elementIndex;
     }
 
@@ -431,19 +449,82 @@ export async function parseDocx(
 
     // Special handling for KEASLIAN TULISAN:
     if (spec.id === 'keaslian') {
-      const searchStart = daftarRujukanElementIndex !== -1 ? daftarRujukanElementIndex : 0;
-      for (let i = searchStart; i < elements.length; i++) {
-        const u = elements[i].text.toUpperCase();
-        if (elements[i].text.includes('.....') || elements[i].text.includes('. . .')) continue;
+      // Look for real heading (distinguish from TOC / Daftar Isi / Daftar Lampiran)
+      type Candidate = { index: number; page: number; score: number };
+      const candidates: Candidate[] = [];
 
-        if (matchesKeywords(u, spec.keywords)) {
-          foundIndex = i;
-          foundPage = elements[i].estimatedPage;
-          break;
+      for (let i = 0; i < elements.length; i++) {
+        const el = elements[i];
+        const u = el.text.toUpperCase().trim();
+        if (!u) continue;
+        if (!matchesKeywords(u, spec.keywords)) continue;
+
+        // Strict TOC filtering
+        const isTocLine =
+          el.rawXml.includes('<w:tab') ||
+          el.rawXml.includes('w:leader=') ||
+          el.rawXml.includes('<w:tabs') ||
+          /(?:\.{2,}|\.\s+\.|\t+\d+|\t+[ivxlcdm]+|\s+[ivxlcdm\d]{1,4}$)/i.test(el.text);
+
+        let score = 0;
+        if (isTocLine) {
+          score -= 100;
         }
+
+        // Check if paragraph has its own page break or follows a page break
+        if (el.hasPageBreak) score += 40;
+        if (i > 0 && (elements[i - 1].hasPageBreak || elements[i - 1].hasSectPr)) score += 30;
+        if (el.isHeading) score += 20;
+
+        // Check if surrounding lines look like a real document page (e.g. blank lines or statement body)
+        let emptyFollowers = 0;
+        let hasStatementBody = false;
+        for (let k = i + 1; k < Math.min(i + 15, elements.length); k++) {
+          const followerText = elements[k].text.trim().toLowerCase();
+          if (!followerText) {
+            emptyFollowers++;
+          } else if (
+            followerText.includes('saya yang bertanda tangan') ||
+            followerText.includes('nama :') ||
+            followerText.includes('nama:') ||
+            followerText.includes('nim') ||
+            followerText.includes('program studi') ||
+            followerText.includes('menyatakan bahwa') ||
+            followerText.includes('skripsi ini') ||
+            followerText.includes('materai')
+          ) {
+            hasStatementBody = true;
+          }
+        }
+        if (emptyFollowers >= 3) score += 30;
+        if (hasStatementBody) score += 50;
+
+        // Front matter check: after Pengesahan and before BAB I
+        if (bab1ElementIndex !== -1 && i < bab1ElementIndex) {
+          score += 15;
+        }
+
+        candidates.push({ index: i, page: el.estimatedPage, score });
       }
 
-      // If not found after Daftar Rujukan, fallback to after Daftar Rujukan + 1 (new page)
+      // Sort candidates by score descending
+      candidates.sort((a, b) => b.score - a.score);
+      if (candidates.length > 0 && candidates[0].score > -50) {
+        foundIndex = candidates[0].index;
+        foundPage = candidates[0].page;
+      }
+
+      // 2. Fallback: If not found, check after Pengesahan or after Daftar Rujukan
+      if (foundIndex === -1) {
+        const pengesahanFound = detectedTargets.find((t) => t.id === 'pengesahan' && t.elementIndex !== undefined);
+        if (pengesahanFound && pengesahanFound.elementIndex !== undefined) {
+          const pEnd = pengesahanFound.endElementIndex || pengesahanFound.elementIndex;
+          if (pEnd + 1 < elements.length && pEnd + 1 < (bab1ElementIndex !== -1 ? bab1ElementIndex : 250)) {
+            foundIndex = pEnd + 1;
+            foundPage = elements[foundIndex].estimatedPage;
+          }
+        }
+      }
       if (foundIndex === -1 && daftarRujukanElementIndex !== -1) {
         foundIndex = Math.min(daftarRujukanElementIndex + 40, elements.length - 1);
         foundPage = elements[foundIndex].estimatedPage + 1;

@@ -30,7 +30,7 @@ import { validateDocxBlob } from './utils/docxValidator';
 import { rotateImageFile, autoRotateKartuBimbingan } from './utils/imageUtils';
 import { isPdfFile, convertPdfToJpgPages } from './utils/pdfConverter';
 import { DocumentCropModal } from './components/DocumentCropModal';
-import { autoProcessDocumentPhoto, CropResult } from './utils/documentCropper';
+import { autoProcessDocumentPhoto, loadImage, CropResult } from './utils/documentCropper';
 
 export interface GabungFileProps {
   onExportComplete?: (fileName: string) => void;
@@ -48,7 +48,7 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
   const [isConvertingPdf, setIsConvertingPdf] = useState(false);
   const [pdfConversionStatus, setPdfConversionStatus] = useState<string>('');
 
-  // Auto-Crop & Deskew state
+  // Auto-Crop state (tanpa rotasi otomatis)
   const [scanToCrop, setScanToCrop] = useState<ScanFile | null>(null);
   const [isAutoCroppingAll, setIsAutoCroppingAll] = useState(false);
 
@@ -113,7 +113,7 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
     ]);
   };
 
-  // Crop & Deskew Handlers for Student Document Attachments
+  // Crop-only handlers for Student Document Attachments
   const handleOpenCropModal = (scan: ScanFile) => {
     setScanToCrop(scan);
   };
@@ -129,8 +129,8 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
               width: result.width,
               height: result.height,
               aspectRatio: result.aspectRatio,
-              isCropped: true,
-              deskewAngle: result.angle,
+              isCropped: result.isCropped || result.enhancedContrast,
+              deskewAngle: 0,
               cropBounds: result.bounds,
               enhancedContrast: result.enhancedContrast,
               originalFile: s.originalFile || s.file,
@@ -139,25 +139,35 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
           : s
       )
     );
-    addLog(`✂️ Berhasil menyimpan crop meja & luruskan dokumen.`, 'success');
+    addLog(`✂️ Berhasil menyimpan crop tepi kertas tanpa rotasi.`, 'success');
   };
 
-  const handleRevertOriginal = (scanId: string) => {
-    setScans((prev) =>
-      prev.map((s) => {
-        if (s.id !== scanId || !s.originalDataUrl || !s.originalFile) return s;
-        return {
+  const handleRevertOriginal = async (scanId: string) => {
+    const source = scans.find((scan) => scan.id === scanId);
+    if (!source?.originalDataUrl || !source.originalFile) return;
+    try {
+      const img = await loadImage(source.originalDataUrl);
+      const width = img.naturalWidth || img.width;
+      const height = img.naturalHeight || img.height;
+      setScans((prev) =>
+        prev.map((s) => s.id !== scanId ? s : {
           ...s,
-          file: s.originalFile,
-          dataUrl: s.originalDataUrl,
+          file: s.originalFile!,
+          dataUrl: s.originalDataUrl!,
+          width,
+          height,
+          aspectRatio: width / height,
           isCropped: false,
           deskewAngle: 0,
           cropBounds: undefined,
           enhancedContrast: false,
-        };
-      })
-    );
-    addLog(`Dipulihkan ke foto asli utuh (tanpa crop).`, 'info');
+        })
+      );
+      addLog(`Dipulihkan ke foto asli utuh (tanpa crop).`, 'info');
+    } catch (error) {
+      console.error('Gagal mengembalikan foto asli:', error);
+      addLog('Tidak bisa membuka foto asli untuk dipulihkan.', 'error');
+    }
   };
 
   const handleAutoCropAllScans = async () => {
@@ -195,7 +205,7 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
       );
       setScans(updated);
       if (croppedCount > 0) {
-        addLog(`✂️ Berhasil memotong latar meja & meluruskan ${croppedCount} foto lampiran secara otomatis!`, 'success');
+        addLog(`✂️ Berhasil memotong tepi meja pada ${croppedCount} foto tanpa mengubah sudut dokumen.`, 'success');
       } else {
         addLog(`Semua foto dokumen sudah presisi dan bersih tanpa latar meja.`, 'info');
       }
@@ -330,7 +340,6 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
         for (const file of imageFiles) {
           let currentFile = file;
           let isCropped = false;
-          let deskewAngle = 0;
           let cropBounds: { x: number; y: number; width: number; height: number } | undefined;
           let originalDataUrl: string | undefined;
           let originalFile: File | undefined;
@@ -338,41 +347,23 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
           let width = 800;
           let height = 1100;
 
-          // Auto-detect table background and camera tilt angle
-          try {
-            const processed = await autoProcessDocumentPhoto(currentFile);
-            originalDataUrl = processed.originalDataUrl;
-            originalFile = processed.originalFile;
-            width = processed.width;
-            height = processed.height;
-            dataUrl = processed.dataUrl;
-
-            if (processed.isCropped) {
-              currentFile = processed.file;
-              isCropped = true;
-              deskewAngle = processed.deskewAngle;
-              cropBounds = processed.cropBounds;
-              addLog(
-                `✂️ Auto-Crop: Menghapus latar meja & meluruskan kemiringan (${deskewAngle > 0 ? '+' : ''}${deskewAngle}°) pada "${file.name}"`,
-                'success'
-              );
-            }
-          } catch (cropErr) {
-            console.warn('Auto crop & deskew skipped for', file.name, cropErr);
-            dataUrl = await new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onload = (e) => resolve(e.target?.result as string);
-              reader.readAsDataURL(currentFile);
-            });
-            const dim = await new Promise<{ width: number; height: number }>((resolve) => {
-              const img = new Image();
-              img.onload = () => resolve({ width: img.width, height: img.height });
-              img.onerror = () => resolve({ width: 800, height: 1100 });
-              img.src = dataUrl;
-            });
-            width = dim.width;
-            height = dim.height;
-          }
+          // Sesuai permintaan pengguna: Foto TIDAK di-autocrop otomatis saat diunggah.
+          // Pengguna dapat melakukan crop manual kapan saja untuk memilih bagian-bagian penting dokumen.
+          dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.readAsDataURL(currentFile);
+          });
+          const dim = await new Promise<{ width: number; height: number }>((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve({ width: img.naturalWidth || img.width, height: img.naturalHeight || img.height });
+            img.onerror = () => resolve({ width: 800, height: 1100 });
+            img.src = dataUrl;
+          });
+          width = dim.width;
+          height = dim.height;
+          originalDataUrl = dataUrl;
+          originalFile = file;
 
           // Auto rotate Kartu Bimbingan jika terbalik/portrait
           if (/bimbingan|kartu/i.test(currentFile.name) && height > width * 1.05) {
@@ -396,7 +387,7 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
             confidence: 'high',
             rotation: 0,
             isCropped,
-            deskewAngle,
+            deskewAngle: 0,
             cropBounds,
             originalDataUrl: originalDataUrl || dataUrl,
             originalFile: originalFile || file,
@@ -780,9 +771,9 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
       setProgressPercent(30);
       await new Promise((r) => setTimeout(r, 200));
 
-      addLog('✓ Menerapkan konfigurasi Margin 2 cm (atas, bawah, kiri, kanan) khusus halaman lampiran & tanda tangan', 'info');
-      addLog('✓ Mengisolasi Halaman 3 (Persetujuan) & Halaman 4 (Pengesahan) agar Halaman 5 (Abstrak) tetap menggunakan margin semula (4-3-4-3 cm)', 'info');
-      addLog('✓ Mengonfigurasi peletakan Pernyataan Keaslian Tulisan setelah Daftar Pustaka', 'info');
+      addLog('✓ Mempertahankan 100% margin asli file skripsi (tanpa mengubah margin apa pun)', 'info');
+      addLog('✓ Halaman Persetujuan, Pengesahan & Keaslian Tulisan menggunakan format In Front of Text', 'info');
+      addLog('✓ 5 Lampiran menggunakan format In Line with Text dengan perataan kiri', 'info');
 
       if (analysis.anchorKeywordMatch && options.useAnchorFor5Attachments) {
         addLog(
@@ -803,7 +794,7 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
 
       // Validate result
       addLog('Memvalidasi integritas paket DOCX...', 'info');
-      const val = await validateDocxBlob(result.docxBlob);
+      const val = await validateDocxBlob(result.docxBlob, docxBuffer);
       setValidationResult(val);
 
       if (!val.isValid) {
@@ -816,7 +807,7 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
         if (c.passed) addLog(`✓ ${c.name}: ${c.details}`, 'success');
       });
 
-      addLog('✓ Margin 1 cm dan urutan dokumen berhasil diterapkan sempurna', 'success');
+      addLog('✓ Margin asli skripsi 100% utuh; penomoran halaman asli dipertahankan', 'success');
       addLog('✓ DOCX berhasil dibuat: SKRIPSI_SELESAI_TEMPEL_LAMPIRAN.docx', 'success');
 
       setFinalDocxBlob(result.docxBlob);
@@ -960,7 +951,7 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
         onRotateSingleScan={handleRotateSingleScan}
       />
 
-      {/* Modal Auto-Crop & Deskew Foto Lampiran (Meja / Kemiringan) */}
+      {/* Modal Auto-Crop Foto Lampiran: potong meja tanpa memutar kertas */}
       {scanToCrop && (
         <DocumentCropModal
           scan={scanToCrop}
@@ -976,7 +967,7 @@ export default function App({ onExportComplete }: GabungFileProps = {}) {
           <strong>ZAIN.NET</strong> — Sistem Otomatis Penempelan Lampiran & Dokumen Skripsi ke Word DOCX
         </p>
         <p className="mt-1 text-[11px] text-slate-400">
-          Margin 2 cm khusus pada halaman lampiran & lembar tanda tangan (Halaman 3 & 4) • Halaman lain tetap margin semula.
+          Mempertahankan 100% margin asli file skripsi • Persetujuan, Pengesahan & Keaslian: In Front of Text • 5 Lampiran: In Line with Text.
         </p>
       </footer>
     </div>

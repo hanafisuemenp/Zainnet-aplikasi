@@ -13,6 +13,9 @@ import {
   Rows,
   Plus,
   Trash2,
+  Sparkles,
+  CheckCircle2,
+  LayoutGrid,
 } from 'lucide-react';
 import {
   AutoRotateMode,
@@ -24,7 +27,15 @@ import {
   RowSizeConfig,
   SizeLayoutMode,
 } from '../types';
-import { SIZE_PRESETS, PAPER_PRESETS } from '../utils/conversions';
+import {
+  SIZE_PRESETS,
+  PAPER_PRESETS,
+  A4_LAYOUT_PRESETS,
+  A4LayoutPreset,
+  A4_FULL_PLANS,
+  FullA4PhotoPlan,
+  applyFullA4Plan,
+} from '../utils/conversions';
 
 interface ConfigPanelProps {
   config: GridConfig;
@@ -53,6 +64,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
         customColumns: 6,
         margins: {
           ...prev.margins,
+          topCm: 0.3,
           leftCm: Math.min(prev.margins.leftCm, 0.8),
           rightCm: Math.min(prev.margins.rightCm, 0.8),
         },
@@ -70,6 +82,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
         customColumns: 5,
         margins: {
           ...prev.margins,
+          topCm: 0.3,
           leftCm: Math.min(prev.margins.leftCm, 0.5),
           rightCm: Math.min(prev.margins.rightCm, 0.5),
         },
@@ -123,6 +136,49 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
     }));
   };
 
+  // Selected A4 full plan count (1 s/d 20 Foto)
+  const [selectedA4Count, setSelectedA4Count] = React.useState<number>(() => {
+    if (config.paperType === 'A4') {
+      const match = A4_FULL_PLANS.find((p) => {
+        const det = config.orientation === 'landscape' ? p.landscape : p.portrait;
+        if (det.layoutMode === 'per_row' && config.sizeLayoutMode === 'per_row') {
+          return true;
+        }
+        return config.customColumns === det.columns && config.customRows === det.rows;
+      });
+      return match ? match.photoCount : 6;
+    }
+    return 6;
+  });
+
+  const [a4OrientationChoice, setA4OrientationChoice] = React.useState<'auto' | 'portrait' | 'landscape'>('auto');
+
+  const handleApplyFullPlan = (count: number, forcedOri?: 'auto' | 'portrait' | 'landscape') => {
+    setSelectedA4Count(count);
+    const plan = A4_FULL_PLANS.find((p) => p.photoCount === count);
+    if (!plan) return;
+    const choice = forcedOri !== undefined ? forcedOri : a4OrientationChoice;
+    if (forcedOri !== undefined) {
+      setA4OrientationChoice(forcedOri);
+    }
+    const targetOri: 'portrait' | 'landscape' =
+      choice === 'auto' ? plan.recommendedOrientation : choice;
+
+    const patch = applyFullA4Plan(plan, targetOri);
+    onChangeConfig((prev) => ({
+      ...prev,
+      ...patch,
+      margins: {
+        ...prev.margins,
+        ...(patch.margins || {}),
+      },
+    }));
+  };
+
+  const handleApplyA4LayoutPreset = (preset: A4LayoutPreset) => {
+    handleApplyFullPlan(preset.photoCount);
+  };
+
   const handleApplyPaketStudio = () => {
     onChangeConfig((prev) => ({
       ...prev,
@@ -136,7 +192,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
         ...prev.margins,
         leftCm: 0.5,
         rightCm: 0.5,
-        topCm: 1.0,
+        topCm: 0.3,
         bottomCm: 1.0,
       },
       gutterCm: 0.08,
@@ -541,6 +597,146 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               </button>
             </div>
 
+            {/* Pilihan Khusus: 1 Kertas A4 Isi 1 s/d 20 Foto (Full Kertas Auto-Scale) */}
+            <div className="p-4 bg-gradient-to-r from-blue-50/90 via-indigo-50/70 to-purple-50/70 border border-blue-200/90 rounded-xl space-y-3.5 shadow-2xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                <div>
+                  <h4 className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+                    <LayoutGrid className="w-4 h-4 text-blue-600" />
+                    <span>Layout Full 1 Lembar A4 (Isi 1 s/d 20 Foto Penuh)</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-600 text-white font-bold">
+                      Full Paper Fit
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-blue-900/80 mt-0.5">
+                    Pilih jumlah foto yang diinginkan. Ukuran foto otomatis diskalakan <strong>memenuhi 1 kertas A4</strong> tanpa sisa kosong di bawah.
+                  </p>
+                </div>
+              </div>
+
+              {/* Grid Buttons: 1 s/d 20 Foto */}
+              <div>
+                <div className="flex items-center justify-between text-[11px] text-neutral-600 font-semibold mb-1.5">
+                  <span>Pilih Jumlah Foto per Lembar A4:</span>
+                  <span className="text-blue-700 font-mono font-bold">
+                    {selectedA4Count} Foto Aktif
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-10 gap-1.5">
+                  {A4_FULL_PLANS.map((plan) => {
+                    const isSelected = selectedA4Count === plan.photoCount;
+                    return (
+                      <button
+                        key={plan.photoCount}
+                        type="button"
+                        onClick={() => handleApplyFullPlan(plan.photoCount)}
+                        className={`py-1.5 px-1 rounded-lg border text-center transition-all cursor-pointer font-bold text-xs ${
+                          isSelected
+                            ? 'border-blue-600 bg-blue-600 text-white shadow-xs scale-102 ring-2 ring-blue-400'
+                            : 'border-slate-200 bg-white hover:border-blue-400 hover:bg-blue-50/70 text-slate-800'
+                        }`}
+                        title={plan.title}
+                      >
+                        <span className="block text-[11px]">Isi {plan.photoCount}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Active Plan Detail & AI Recommendation Card */}
+              {(() => {
+                const plan = A4_FULL_PLANS.find((p) => p.photoCount === selectedA4Count) || A4_FULL_PLANS[5];
+                const activeDetail = config.orientation === 'landscape' ? plan.landscape : plan.portrait;
+
+                return (
+                  <div className="bg-white/95 rounded-xl border border-blue-200 p-3.5 space-y-2.5 shadow-2xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-100 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse"></span>
+                        <span className="text-xs font-bold text-blue-950">
+                          {plan.title} ({config.orientation === 'landscape' ? 'Lanskap' : 'Potret'})
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          100% Lembar A4 Penuh
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* AI Recommendation Banner */}
+                    <div className="p-2.5 rounded-lg bg-indigo-50/90 border border-indigo-200/90 flex items-start gap-2 text-xs text-indigo-950">
+                      <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                      <div className="text-[11px] leading-relaxed">
+                        <strong className="text-indigo-900 block font-bold mb-0.5">
+                          💡 Rekomendasi AI (Format Terbaik: {plan.recommendedOrientation === 'landscape' ? 'Lanskap / Mendatar' : 'Potret / Tegak'}):
+                        </strong>
+                        {plan.aiReason}
+                      </div>
+                    </div>
+
+                    {/* Manual vs AI Orientation Switcher */}
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] text-neutral-600 font-semibold mb-1">
+                        <span>Orientasi Kertas A4:</span>
+                        <span className="text-[10px] text-neutral-500">
+                          (Bisa ikuti AI atau pilih manual)
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleApplyFullPlan(plan.photoCount, 'auto')}
+                          className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all border flex items-center justify-center gap-1 cursor-pointer ${
+                            a4OrientationChoice === 'auto'
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
+                              : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>⚡ Auto (AI: {plan.recommendedOrientation === 'landscape' ? 'Lanskap' : 'Potret'})</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyFullPlan(plan.photoCount, 'portrait')}
+                          className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all border flex items-center justify-center gap-1 cursor-pointer ${
+                            a4OrientationChoice === 'portrait' || (a4OrientationChoice !== 'auto' && config.orientation === 'portrait')
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
+                              : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span>📄 Potret (Tegak)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyFullPlan(plan.photoCount, 'landscape')}
+                          className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all border flex items-center justify-center gap-1 cursor-pointer ${
+                            a4OrientationChoice === 'landscape' || (a4OrientationChoice !== 'auto' && config.orientation === 'landscape')
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
+                              : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span>📑 Lanskap (Mendatar)</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Summary Info */}
+                    <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between text-[11px] text-neutral-600 gap-1">
+                      <span>
+                        Tata Letak: <strong>{activeDetail.columns} Kolom × {activeDetail.rows} Baris</strong>
+                      </span>
+                      <span className="font-mono text-neutral-800">
+                        {activeDetail.summary}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
             {/* Quick Size Presets */}
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -839,6 +1035,19 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 onClick={() =>
                   onChangeConfig((p) => ({
                     ...p,
+                    margins: { ...p.margins, topCm: 0.3 },
+                  }))
+                }
+                className="px-2 py-0.5 text-[10px] bg-blue-50 text-blue-700 font-semibold border border-blue-200 rounded hover:bg-blue-100 cursor-pointer"
+                title="Set margin bagian atas ke 0.3 cm (standar pas foto)"
+              >
+                Atas 0.3 cm
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  onChangeConfig((p) => ({
+                    ...p,
                     margins: { topCm: 1.27, bottomCm: 1.27, leftCm: 1.27, rightCm: 1.27 },
                   }))
                 }
@@ -867,11 +1076,12 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               <input
                 type="number"
                 step="0.1"
-                min="0.5"
+                min="0"
                 max="5"
                 value={config.margins.topCm}
                 onChange={(e) => {
-                  const val = parseFloat(e.target.value) || 1;
+                  const parsed = parseFloat(e.target.value);
+                  const val = isNaN(parsed) ? 0 : parsed;
                   onChangeConfig((p) => ({
                     ...p,
                     margins: { ...p.margins, topCm: val },
@@ -885,11 +1095,12 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               <input
                 type="number"
                 step="0.1"
-                min="0.5"
+                min="0"
                 max="5"
                 value={config.margins.bottomCm}
                 onChange={(e) => {
-                  const val = parseFloat(e.target.value) || 1;
+                  const parsed = parseFloat(e.target.value);
+                  const val = isNaN(parsed) ? 0 : parsed;
                   onChangeConfig((p) => ({
                     ...p,
                     margins: { ...p.margins, bottomCm: val },
@@ -903,11 +1114,12 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               <input
                 type="number"
                 step="0.1"
-                min="0.5"
+                min="0"
                 max="5"
                 value={config.margins.leftCm}
                 onChange={(e) => {
-                  const val = parseFloat(e.target.value) || 1;
+                  const parsed = parseFloat(e.target.value);
+                  const val = isNaN(parsed) ? 0 : parsed;
                   onChangeConfig((p) => ({
                     ...p,
                     margins: { ...p.margins, leftCm: val },
@@ -921,11 +1133,12 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               <input
                 type="number"
                 step="0.1"
-                min="0.5"
+                min="0"
                 max="5"
                 value={config.margins.rightCm}
                 onChange={(e) => {
-                  const val = parseFloat(e.target.value) || 1;
+                  const parsed = parseFloat(e.target.value);
+                  const val = isNaN(parsed) ? 0 : parsed;
                   onChangeConfig((p) => ({
                     ...p,
                     margins: { ...p.margins, rightCm: val },

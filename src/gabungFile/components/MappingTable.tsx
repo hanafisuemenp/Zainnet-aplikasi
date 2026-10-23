@@ -86,12 +86,12 @@ export const MappingTable: React.FC<MappingTableProps> = ({
           <div className="flex items-center gap-2">
             <span className="font-bold text-slate-900">{target.title}</span>
             {isSignedPage ? (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
-                Pengganti Teks
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold" title="Posisi gambar mengambang di atas teks penuh tanpa mengubah margin asli skripsi">
+                In Front of Text
               </span>
             ) : (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold">
-                5 Lampiran
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold" title="Posisi gambar sejajar teks dengan keterangan di atas foto">
+                In Line with Text
               </span>
             )}
           </div>

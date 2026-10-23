@@ -20,7 +20,7 @@ export const SewaTogaView: React.FC<SewaTogaViewProps> = ({ onBackToHome }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Target direct URL and internal proxy URL
-  const DIRECT_URL = 'https://sewatoga-v1-4.sewatoga.pages.dev/';
+  const DIRECT_URL = 'https://03c702f0.sewatoga.pages.dev/';
   const PROXY_URL = '/proxy-sewatoga';
   const iframeSrc = embedMode === 'proxy' ? PROXY_URL : DIRECT_URL;
 

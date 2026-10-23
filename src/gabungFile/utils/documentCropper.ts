@@ -2,9 +2,9 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  * 
- * Auto-Crop & Deskew Engine for Student Document Attachments (Menu No 10)
- * Automatically detects document paper boundaries, crops out table/background,
- * and corrects skewed/tilted camera angles.
+ * Auto-Crop Engine for Student Document Attachments (Menu No 10)
+ * Trims only the outer table/background; never rotates or deskews the document.
+ * Images that need rotation can still be rotated by the separate manual 90-degree control.
  */
 
 export interface DocumentBounds {
@@ -12,7 +12,7 @@ export interface DocumentBounds {
   y: number;
   width: number;
   height: number;
-  angle: number; // degrees, positive = clockwise
+  angle: number; // Compatibility: always 0; Auto-Crop does not rotate
   hasTable: boolean; // true if significant background (table/desk) is detected
   confidence: number;
 }
@@ -55,7 +55,7 @@ export function fileToDataUrl(file: File): Promise<string> {
 
 /**
  * Analyzes an image to detect paper boundaries (excluding table/desk)
- * and tilt/skew angle in degrees.
+ * without rotating the document or attempting deskew.
  */
 export async function detectDocumentBounds(imageSource: HTMLImageElement | string): Promise<DocumentBounds> {
   const img = typeof imageSource === 'string' ? await loadImage(imageSource) : imageSource;
@@ -171,41 +171,9 @@ export async function detectDocumentBounds(imageSource: HTMLImageElement | strin
     maxY = aH;
   }
 
-  // 3. Skew Angle Detection (Linear regression on the top boundary slope)
-  const topEdgePoints: { x: number; y: number }[] = [];
-  const startX = Math.round(minX + (maxX - minX) * 0.2);
-  const endX = Math.round(minX + (maxX - minX) * 0.8);
-  const stepX = Math.max(4, Math.round((endX - startX) / 16));
-
-  for (let x = startX; x <= endX; x += stepX) {
-    for (let y = Math.max(0, minY - 15); y < Math.min(aH, minY + (maxY - minY) * 0.4); y += 2) {
-      if (isPaperPixel(x, y)) {
-        topEdgePoints.push({ x, y });
-        break;
-      }
-    }
-  }
-
-  let detectedAngle = 0;
-  if (topEdgePoints.length >= 5) {
-    let sX = 0, sY = 0, sXY = 0, sX2 = 0;
-    const n = topEdgePoints.length;
-    for (const p of topEdgePoints) {
-      sX += p.x;
-      sY += p.y;
-      sXY += p.x * p.y;
-      sX2 += p.x * p.x;
-    }
-    const denom = n * sX2 - sX * sX;
-    if (Math.abs(denom) > 1e-5) {
-      const slope = (n * sXY - sX * sY) / denom;
-      const angleDeg = (Math.atan(slope) * 180) / Math.PI;
-      // Clamp reasonable skew angle (-25 to +25 degrees)
-      if (Math.abs(angleDeg) <= 25) {
-        detectedAngle = Math.round(angleDeg * 10) / 10;
-      }
-    }
-  }
+  // 3. Angle correction deliberately disabled. A bright stamp, table edge,
+  // or perspective distortion must NEVER cause the document to be rotated.
+  // The crop box only trims the outside of the paper.
 
   // 4. Map back to full resolution with 1% safety margin
   const invScale = 1 / scale;
@@ -216,10 +184,10 @@ export async function detectDocumentBounds(imageSource: HTMLImageElement | strin
   const fullY = Math.max(0, Math.round(minY * invScale) - marginY);
   const fullX2 = Math.min(origW, Math.round(maxX * invScale) + marginX);
   const fullY2 = Math.min(origH, Math.round(maxY * invScale) + marginY);
-  const fullW = Math.max(100, fullX2 - fullX);
-  const fullH = Math.max(100, fullY2 - fullY);
+  const fullW = Math.max(1, fullX2 - fullX);
+  const fullH = Math.max(1, fullY2 - fullY);
 
-  // Check if significant table is present (at least 2% margin on any edge or tilt >= 0.5 deg)
+  // Detect significant background strictly from removable outer margins.
   const leftMarginRatio = fullX / origW;
   const topMarginRatio = fullY / origH;
   const rightMarginRatio = (origW - fullX2) / origW;
@@ -233,29 +201,28 @@ export async function detectDocumentBounds(imageSource: HTMLImageElement | strin
     bottomMarginRatio > 0.02 ||
     areaRatio < 0.96;
 
-  const hasSignificantTilt = Math.abs(detectedAngle) >= 0.5;
-  const hasTable = hasTableMargin || hasSignificantTilt;
+  const hasTable = hasTableMargin;
 
   return {
     x: fullX,
     y: fullY,
     width: fullW,
     height: fullH,
-    angle: detectedAngle,
+    angle: 0,
     hasTable,
     confidence: hasTable ? 0.95 : 0.8,
   };
 }
 
 /**
- * Crops and deskews an image according to specified bounds and rotation angle.
+ * Crops an image without rotating its pixels.
  * Produces a high-quality JPEG File & DataURL.
  */
 export async function cropAndDeskewImage(
   imageSource: HTMLImageElement | string,
   options: {
     bounds?: { x: number; y: number; width: number; height: number };
-    angle?: number; // tilt angle in degrees to straighten
+    angle?: number; // Legacy option: ignored to prevent unintended rotation
     enhanceContrast?: boolean;
     fileName?: string;
   } = {}
@@ -265,12 +232,14 @@ export async function cropAndDeskewImage(
   const origH = img.naturalHeight || img.height;
 
   const bounds = options.bounds || { x: 0, y: 0, width: origW, height: origH };
-  const angle = options.angle ?? 0;
   const enhance = !!options.enhanceContrast;
 
-  // Create canvas for the cropped area
-  const cropW = Math.max(50, Math.min(origW, Math.round(bounds.width)));
-  const cropH = Math.max(50, Math.min(origH, Math.round(bounds.height)));
+  // Clamp the rectangle to real image bounds before sizing the output.
+  // This also prevents stretching an edge when a manual slider is near 45%.
+  const x = Math.max(0, Math.min(origW - 1, Math.round(bounds.x)));
+  const y = Math.max(0, Math.min(origH - 1, Math.round(bounds.y)));
+  const cropW = Math.max(1, Math.min(origW - x, Math.round(bounds.width)));
+  const cropH = Math.max(1, Math.min(origH - y, Math.round(bounds.height)));
 
   const outCanvas = document.createElement('canvas');
   outCanvas.width = cropW;
@@ -281,35 +250,9 @@ export async function cropAndDeskewImage(
   outCtx.imageSmoothingEnabled = true;
   outCtx.imageSmoothingQuality = 'high';
 
-  // If angle is non-zero, deskew around the center of the cropped document
-  if (Math.abs(angle) > 0.1) {
-    const centerX = bounds.x + bounds.width / 2;
-    const centerY = bounds.y + bounds.height / 2;
-
-    outCtx.save();
-    outCtx.translate(cropW / 2, cropH / 2);
-    // Rotate in reverse of tilt to straighten
-    outCtx.rotate((-angle * Math.PI) / 180);
-    outCtx.drawImage(
-      img,
-      -centerX,
-      -centerY
-    );
-    outCtx.restore();
-  } else {
-    // Standard fast direct crop
-    outCtx.drawImage(
-      img,
-      bounds.x,
-      bounds.y,
-      bounds.width,
-      bounds.height,
-      0,
-      0,
-      cropW,
-      cropH
-    );
-  }
+  // Direct axis-aligned crop: preserve the original orientation and every pixel
+  // inside the selected bounds. No canvas.rotate()/perspective transformation.
+  outCtx.drawImage(img, x, y, cropW, cropH, 0, 0, cropW, cropH);
 
   // Optional: Enhance document contrast & paper whiteness (Document Scanner Filter)
   if (enhance) {
@@ -354,7 +297,7 @@ export async function cropAndDeskewImage(
   const outFile = new File([blob], outFileName, { type: 'image/jpeg' });
   const dataUrl = outCanvas.toDataURL('image/jpeg', quality);
 
-  const isCropped = bounds.width < origW * 0.98 || bounds.height < origH * 0.98 || Math.abs(angle) > 0.5;
+  const isCropped = cropW < origW * 0.98 || cropH < origH * 0.98;
 
   return {
     file: outFile,
@@ -362,16 +305,16 @@ export async function cropAndDeskewImage(
     width: cropW,
     height: cropH,
     aspectRatio: cropW / cropH,
-    angle,
-    bounds: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height },
+    angle: 0,
+    bounds: { x, y, width: cropW, height: cropH },
     isCropped,
     enhancedContrast: enhance,
   };
 }
 
 /**
- * Automatically detects table background or skew on a raw uploaded photo,
- * and crops/straightens it if necessary.
+ * Automatically crops only table/background around an uploaded photo.
+ * A detected angle must never cause a crop/rotation on its own.
  */
 export async function autoProcessDocumentPhoto(
   file: File
@@ -395,8 +338,8 @@ export async function autoProcessDocumentPhoto(
   // Run auto-detection
   const detection = await detectDocumentBounds(img);
 
-  // If table was detected or document is tilted >= 0.5 degrees, execute auto-crop and deskew
-  if (detection.hasTable || Math.abs(detection.angle) >= 0.5) {
+  // Only crop when margins are genuinely removable; do not trigger on tilt.
+  if (detection.hasTable) {
     const cropped = await cropAndDeskewImage(img, {
       bounds: {
         x: detection.x,
@@ -404,7 +347,6 @@ export async function autoProcessDocumentPhoto(
         width: detection.width,
         height: detection.height,
       },
-      angle: detection.angle,
       enhanceContrast: false,
       fileName: file.name,
     });
@@ -416,7 +358,7 @@ export async function autoProcessDocumentPhoto(
       height: cropped.height,
       aspectRatio: cropped.aspectRatio,
       isCropped: true,
-      deskewAngle: detection.angle,
+      deskewAngle: 0,
       originalFile: file,
       originalDataUrl,
       cropBounds: {

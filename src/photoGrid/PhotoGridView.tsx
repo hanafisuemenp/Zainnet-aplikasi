@@ -11,7 +11,14 @@ import { calculateLayout, generateDocxBlob, generateDocumentXml, expandPhotosWit
 import { generatePdfBlob } from './utils/pdfGenerator';
 import { processImageToBlob, generateSamplePhotoFile } from './utils/imageProcessor';
 import { convertPdfToJpgPages, detectIsStnk, detectIsKtp } from './utils/pdfToJpg';
-import { CheckCircle2, AlertCircle, FileText, Sparkles, CreditCard } from 'lucide-react';
+import {
+  A4_LAYOUT_PRESETS,
+  A4LayoutPreset,
+  A4_FULL_PLANS,
+  FullA4PhotoPlan,
+  applyFullA4Plan,
+} from './utils/conversions';
+import { CheckCircle2, AlertCircle, FileText, Sparkles, CreditCard, LayoutGrid } from 'lucide-react';
 
 const INITIAL_CONFIG: GridConfig = {
   unit: 'cm',
@@ -31,7 +38,7 @@ const INITIAL_CONFIG: GridConfig = {
   customPaperHeightCm: 29.7,
   orientation: 'portrait',
   margins: {
-    topCm: 1.0,
+    topCm: 0.3,
     bottomCm: 1.0,
     leftCm: 0.5,
     rightCm: 0.5,
@@ -699,7 +706,7 @@ export const PhotoGridView: React.FC<PhotoGridViewProps> = ({ onExportComplete }
                       { id: 'row_2', widthCm: 3.0, heightCm: 4.0, columnsMode: 'custom', customColumns: 6 },
                       { id: 'row_3', widthCm: 2.0, heightCm: 3.0, columnsMode: 'custom', customColumns: 8 },
                     ],
-                    margins: { topCm: 1.0, bottomCm: 1.0, leftCm: 0.4, rightCm: 0.4 },
+                    margins: { topCm: 0.3, bottomCm: 1.0, leftCm: 0.4, rightCm: 0.4 },
                     gutterCm: 0.05,
                     rowSpacingCm: 0.3,
                   }));
@@ -748,6 +755,73 @@ export const PhotoGridView: React.FC<PhotoGridViewProps> = ({ onExportComplete }
                 <FileText className="w-3.5 h-3.5 text-blue-600" />
                 <span>Ukuran STNK (23 × 7.5 cm) - A4 Lanskap (Stretch)</span>
               </button>
+
+              {/* Quick A4 Layout Presets: 1 A4 Isi 1 s/d 20 Foto (Full Paper Fit) */}
+              <div className="w-full pt-2 border-t border-slate-200/60 flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mr-1">
+                  <LayoutGrid className="w-3.5 h-3.5 text-blue-600" />
+                  1 Lembar A4 Isi (1-20 Foto Full):
+                </span>
+                {A4_FULL_PLANS.map((plan) => {
+                  const activeDetail = config.orientation === 'landscape' ? plan.landscape : plan.portrait;
+                  const isA4Active =
+                    config.paperType === 'A4' &&
+                    ((activeDetail.layoutMode === 'per_row' && config.sizeLayoutMode === 'per_row') ||
+                      (config.customColumns === activeDetail.columns && config.customRows === activeDetail.rows));
+
+                  return (
+                    <button
+                      key={plan.photoCount}
+                      type="button"
+                      onClick={() => {
+                        const patch = applyFullA4Plan(plan, plan.recommendedOrientation);
+                        setConfig((prev) => ({
+                          ...prev,
+                          ...patch,
+                          margins: {
+                            ...prev.margins,
+                            ...(patch.margins || {}),
+                          },
+                        }));
+
+                        // Auto-fill photo copies if photos are uploaded so the page is immediately 100% full
+                        if (photos.length === 1 && photos[0].copies < plan.photoCount) {
+                          setPhotos((prev) =>
+                            prev.map((p, idx) => (idx === 0 ? { ...p, copies: plan.photoCount } : p))
+                          );
+                        } else if (photos.length > 1) {
+                          const currentTotal = photos.reduce((acc, p) => acc + (p.copies || 1), 0);
+                          if (currentTotal < plan.photoCount) {
+                            const base = Math.floor(plan.photoCount / photos.length);
+                            const remainder = plan.photoCount % photos.length;
+                            setPhotos((prev) =>
+                              prev.map((p, idx) => ({
+                                ...p,
+                                copies: base + (idx < remainder ? 1 : 0),
+                              }))
+                            );
+                          }
+                        }
+
+                        showToast(`Template ${plan.title} (${plan.recommendedOrientation === 'landscape' ? 'Lanskap' : 'Potret'}) aktif! Mengisi 100% A4`);
+                      }}
+                      className={`px-2 py-0.5 text-xs font-bold rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
+                        isA4Active
+                          ? 'border-blue-600 bg-blue-600 text-white shadow-xs'
+                          : 'border-slate-300 bg-white hover:border-blue-500 hover:bg-blue-50/50 text-slate-800'
+                      }`}
+                      title={`${plan.title} - ${plan.aiReason}`}
+                    >
+                      <span>Isi {plan.photoCount}</span>
+                      {isA4Active && (
+                        <span className="text-[9px] px-1 py-0.2 rounded font-mono bg-blue-700 text-blue-100">
+                          {plan.recommendedOrientation === 'landscape' ? 'L' : 'P'}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
